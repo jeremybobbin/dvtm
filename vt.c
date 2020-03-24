@@ -1630,7 +1630,7 @@ pid_t vt_forkpty(Vt *t, const char *p, const char *argv[], const char *cwd, cons
 
 		for (const char **envp = env; envp && envp[0]; envp += 2)
 			setenv(envp[0], envp[1], 1);
-		setenv("TERM", vt_term, 1);
+		setenv("TERM", vt_term, 0);
 
 		if (cwd)
 			chdir(cwd);
