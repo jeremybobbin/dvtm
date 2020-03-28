@@ -1526,7 +1526,8 @@ static void
 togglemode(const char *args[]) {
 	static int lastpos;
 	if (mode == NORMAL)
-		mode = INSERT;
+		if (sel) mode = INSERT;
+		else return
 	else if (mode == INSERT)
 		mode = NORMAL;
 	/* always show status bar in normal mode */
