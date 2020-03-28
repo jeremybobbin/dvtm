@@ -728,7 +728,7 @@ sigchld_handler(int sig) {
 		debug("child with pid %d died\n", pid);
 
 		/* go back to normal mode when editor is killed */
-		if (sel == NULL || sel->editor_pid == pid)
+		if (sel && sel->editor_pid == pid)
 			togglemode(NULL);
 
 		for (Client *c = clients; c; c = c->next) {
