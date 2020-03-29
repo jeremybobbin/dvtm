@@ -401,7 +401,7 @@ drawbar(void) {
 
 static int
 show_border(void) {
-	return (bar.pos != BAR_OFF || mode == NORMAL) && (clients && nextvisible(clients->next));
+	return (clients && nextvisible(clients->next)) || (bar.pos != BAR_OFF || mode == NORMAL);
 }
 
 static void
