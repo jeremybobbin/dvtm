@@ -67,6 +67,7 @@ struct Client {
 	Vt *editor, *app;
 	int editor_fds[2];
 	volatile sig_atomic_t editor_died;
+	pid_t editor_pid;
 	const char *cmd;
 	char title[255];
 	int order;
@@ -121,6 +122,7 @@ typedef struct {
 typedef unsigned int KeyCombo[MAX_KEYS];
 
 typedef struct {
+	int mode;
 	KeyCombo keys;
 	Action action;
 } KeyBinding;
@@ -136,6 +138,7 @@ typedef struct {
 } Cmd;
 
 enum { BAR_TOP, BAR_BOTTOM, BAR_OFF };
+enum { INSERT, NORMAL };
 
 typedef struct {
 	int fd;
@@ -213,6 +216,7 @@ static void toggleview(const char *args[]);
 static void viewprevtag(const char *args[]);
 static void view(const char *args[]);
 static void zoom(const char *args[]);
+static void togglemode(const char *args[]);
 
 /* commands for use by mouse bindings */
 static void mouse_focus(const char *args[]);
@@ -248,6 +252,7 @@ static const char *shell;
 static Register copyreg;
 static volatile sig_atomic_t running = true;
 static bool runinall = false;
+static int mode = INSERT;
 
 static void
 eprint(const char *errstr, ...) {
@@ -298,10 +303,10 @@ updatebarpos(void) {
 	way = 0;
 	wah = screen.h;
 	waw = screen.w;
-	if (bar.pos == BAR_TOP) {
+	if (bar.pos == BAR_TOP || (mode == NORMAL && bar.lastpos == BAR_TOP)) {
 		wah -= bar.h;
 		way += bar.h;
-	} else if (bar.pos == BAR_BOTTOM) {
+	} else if (bar.pos == BAR_BOTTOM || (mode == NORMAL && bar.lastpos == BAR_BOTTOM)) {
 		wah -= bar.h;
 		bar.y = wah;
 	}
@@ -325,7 +330,7 @@ static void
 drawbar(void) {
 	int sx, sy, x, y, width;
 	unsigned int occupied = 0, urgent = 0;
-	if (bar.pos == BAR_OFF)
+	if (bar.pos == BAR_OFF && mode != NORMAL)
 		return;
 
 	for (Client *c = clients; c; c = c->next) {
@@ -352,6 +357,14 @@ drawbar(void) {
 
 	attrset(runinall ? TAG_SEL : TAG_NORMAL);
 	addstr(layout->symbol);
+	if (bar.pos != BAR_OFF) {
+		attrset(TAG_OCCUPIED);
+		addstr(" - ");
+	}
+	if (mode == INSERT) {
+		attrset(TAG_SEL);
+		addstr("INSERT ");
+	}
 	attrset(TAG_NORMAL);
 
 	getyx(stdscr, y, x);
@@ -388,7 +401,7 @@ drawbar(void) {
 
 static int
 show_border(void) {
-	return (bar.pos != BAR_OFF) && (clients && nextvisible(clients->next));
+	return (bar.pos != BAR_OFF || mode == NORMAL) && (clients && nextvisible(clients->next));
 }
 
 static void
@@ -714,6 +727,10 @@ sigchld_handler(int sig) {
 
 		debug("child with pid %d died\n", pid);
 
+		/* go back to normal mode when editor is killed */
+		if (pid == sel->editor_pid)
+			togglemode(NULL);
+
 		for (Client *c = clients; c; c = c->next) {
 			if (c->pid == pid) {
 				c->died = true;
@@ -762,6 +779,8 @@ resize_screen(void) {
 static KeyBinding*
 keybinding(KeyCombo keys, unsigned int keycount) {
 	for (unsigned int b = 0; b < LENGTH(bindings); b++) {
+		if (mode != bindings[b].mode)
+			continue;
 		for (unsigned int k = 0; k < keycount; k++) {
 			if (keys[k] != bindings[b].keys[k])
 				break;
@@ -1098,6 +1117,7 @@ create(const char *args[]) {
 
 static void
 copymode(const char *args[]) {
+	pid_t pid; 
 	if (!args || !args[0] || !sel || sel->editor)
 		return;
 
@@ -1116,12 +1136,13 @@ copymode(const char *args[]) {
 	snprintf(argline, sizeof(argline), "+%d", line);
 	argv[1] = argline;
 
-	if (vt_forkpty(sel->editor, args[0], argv, NULL, NULL, to, from) < 0) {
+	if ((pid = vt_forkpty(sel->editor, args[0], argv, NULL, NULL, to, from)) < 0) {
 		vt_destroy(sel->editor);
 		sel->editor = NULL;
 		return;
 	}
 
+	sel->editor_pid = pid;
 	sel->term = sel->editor;
 
 	if (sel->editor_fds[0] != -1) {
@@ -1145,6 +1166,8 @@ copymode(const char *args[]) {
 
 	if (args[1])
 		vt_write(sel->editor, args[1], strlen(args[1]));
+
+	togglemode(NULL);
 }
 
 static void
@@ -1498,6 +1521,25 @@ zoom(const char *args[]) {
 		toggleminimize(NULL);
 	arrange();
 }
+
+static void
+togglemode(const char *args[]) {
+	static int lastpos;
+	if (mode == NORMAL)
+		mode = INSERT;
+	else if (mode == INSERT)
+		mode = NORMAL;
+	/* always show status bar in normal mode */
+	updatebarpos();
+	redraw(NULL);
+	drawbar();
+	if (is_content_visible(sel)) {
+		draw_content(sel);
+		curs_set(vt_cursor_visible(sel->term));
+		wnoutrefresh(sel->window);
+	}
+}
+
 
 /* commands for use by mouse bindings */
 static void
@@ -1896,7 +1938,9 @@ main(int argc, char *argv[]) {
 				} else {
 					key_index = 0;
 					memset(keys, 0, sizeof(keys));
-					keypress(code);
+					/* dispose of unmatched key sequences in normal mode */
+					if (mode == INSERT)
+						keypress(code);
 				}
 			}
 			if (r == 1) /* no data available on pty's */
