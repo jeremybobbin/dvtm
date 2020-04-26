@@ -1713,8 +1713,10 @@ csihandle(Term *term)
 	case ' ':
 		switch (term->csiescseq.mode[1]) {
 		case 'q': /* DECSCUSR -- Set Cursor Style */
+			/*
 			if (xsetcursor(term->csiescseq.arg[0]))
 				goto unknown;
+				*/
 			break;
 		default:
 			goto unknown;
@@ -1790,18 +1792,18 @@ strhandle(Term *term)
 			/* FALLTHROUGH */
 		case 104: /* color reset, here p = NULL */
 			j = (narg > 1) ? atoi(term->strescseq.args[1]) : -1;
-			if (xsetcolorname(j, p)) {
-				if (par == 104 && narg <= 1)
-					return; /* color reset without parameter */
-				fprintf(stderr, "erresc: invalid color j=%d, p=%s\n",
-				        j, p ? p : "(null)");
-			} else {
+			//if (xsetcolorname(j, p)) {
+			//	if (par == 104 && narg <= 1)
+			//		return; /* color reset without parameter */
+			//	fprintf(stderr, "erresc: invalid color j=%d, p=%s\n",
+			//	        j, p ? p : "(null)");
+			//} else {
 				/*
 				 * TODO if defaultbg color is changed, borders
 				 * are dirty
 				 */
 				tredraw(term);
-			}
+			//}
 			return;
 		}
 		break;
@@ -2493,28 +2495,28 @@ drawregion(Term *term, int x1, int y1, int x2, int y2)
 void
 tdraw(Term *term)
 {
-	int cx = term->c.x, ocx = term->ocx, ocy = term->ocy;
-
-	if (!xstartdraw())
-		return;
-
-	/* adjust cursor position */
-	LIMIT(term->ocx, 0, term->col-1);
-	LIMIT(term->ocy, 0, term->row-1);
-	if (((Glyph)term->line[term->ocy][term->ocx]).mode & ATTR_WDUMMY)
-		term->ocx--;
-	if (((Glyph)term->line[term->c.y][cx]).mode & ATTR_WDUMMY)
-		cx--;
-
-	drawregion(term, 0, 0, term->col, term->row);
-	/*xdrawcursor(cx, term->c.y, term->line[term->c.y][cx],
-			term->ocx, term->ocy, term->line[term->ocy][term->ocx]); */
-	term->ocx = cx;
-	term->ocy = term->c.y;
-	/* xfinishdraw();
-	if (ocx != term->ocx || ocy != term->ocy)
-		xximspot(term->ocx, term->ocy);
-		*/
+//	int cx = term->c.x, ocx = term->ocx, ocy = term->ocy;
+//
+//	if (!xstartdraw())
+//		return;
+//
+//	/* adjust cursor position */
+//	LIMIT(term->ocx, 0, term->col-1);
+//	LIMIT(term->ocy, 0, term->row-1);
+//	if (((Glyph)term->line[term->ocy][term->ocx]).mode & ATTR_WDUMMY)
+//		term->ocx--;
+//	if (((Glyph)term->line[term->c.y][cx]).mode & ATTR_WDUMMY)
+//		cx--;
+//
+//	drawregion(term, 0, 0, term->col, term->row);
+//	/*xdrawcursor(cx, term->c.y, term->line[term->c.y][cx],
+//			term->ocx, term->ocy, term->line[term->ocy][term->ocx]); */
+//	term->ocx = cx;
+//	term->ocy = term->c.y;
+//	/* xfinishdraw();
+//	if (ocx != term->ocx || ocy != term->ocy)
+//		xximspot(term->ocx, term->ocy);
+//		*/
 }
 
 void
