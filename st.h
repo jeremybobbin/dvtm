@@ -59,14 +59,6 @@ typedef unsigned short ushort;
 
 typedef uint_least32_t Rune;
 
-#define Glyph Glyph_
-typedef struct {
-	Rune u;           /* character code */
-	ushort mode;      /* attribute flags */
-	uint32_t fg;      /* foreground  */
-	uint32_t bg;      /* background  */
-} Glyph;
-
 typedef Glyph *Line;
 
 typedef union {
@@ -76,6 +68,14 @@ typedef union {
 	const void *v;
 	const char *s;
 } Arg;
+
+#define Glyph Glyph_
+typedef struct {
+	Rune u;           /* character code */
+	ushort mode;      /* attribute flags */
+	uint32_t fg;      /* foreground  */
+	uint32_t bg;      /* background  */
+} Glyph;
 
 typedef struct {
 	Glyph attr; /* current char attributes */
@@ -102,6 +102,12 @@ typedef struct {
 	int charset;  /* current charset */
 	int icharset; /* selected charset for sequence */
 	int *tabs;
+	Selection sel;
+	CSIEscape csiescseq;
+	STREscape strescseq;
+	int iofd;
+	int cmdfd;
+	pid_t pid;
 } Term;
 
 void die(const char *, ...);
