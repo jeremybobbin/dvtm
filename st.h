@@ -78,23 +78,23 @@ typedef union {
 } Arg;
 
 void die(const char *, ...);
-void redraw(void);
-void draw(void);
+void redraw(Term *);
+void draw(Term *);
 
 void printscreen(const Arg *);
 void printsel(const Arg *);
 void sendbreak(const Arg *);
 void toggleprinter(const Arg *);
 
-int tattrset(int);
-void tnew(int, int);
-void tresize(int, int);
-void tsetdirtattr(int);
-void ttyhangup(void);
-int ttynew(char *, char *, char *, char **);
-size_t ttyread(void);
-void ttyresize(int, int);
-void ttywrite(const char *, size_t, int);
+int tattrset(Term *, int);
+void tnew(Term *, int, int);
+void tresize(Term *, int, int);
+void tsetdirtattr(Term *, int);
+void ttyhangup(Term *, );
+int ttynew(Term *, char *, char *, char *, char **);
+size_t ttyread(Term *, );
+void ttyresize(Term *, int, int);
+void ttywrite(Term *, const char *, size_t, int);
 
 void resettitle(void);
 
