@@ -1770,14 +1770,14 @@ strhandle(Term *term)
 		case 1:
 		case 2:
 			if (narg > 1)
-				xsettitle(term->strescseq.args[1]);
+				/* xsettitle(term->strescseq.args[1]); */
 			return;
 		case 52:
 			if (narg > 2) {
 				dec = base64dec(term->strescseq.args[2]);
 				if (dec) {
-					xsetsel(dec);
-					xclipcopy();
+					/* xsetsel(dec);
+					xclipcopy(); */
 				} else {
 					fprintf(stderr, "erresc: invalid base64\n");
 				}
@@ -1806,7 +1806,7 @@ strhandle(Term *term)
 		}
 		break;
 	case 'k': /* old title set compatibility */
-		xsettitle(term->strescseq.args[0]);
+		/*xsettitle(term->strescseq.args[0]);*/
 		return;
 	case 'P': /* DCS -- Device Control String */
 		term->mode |= ESC_DCS;
@@ -2048,7 +2048,7 @@ tcontrolcode(Term *term, uchar ascii)
 			/* backwards compatibility to xterm */
 			strhandle(term);
 		} else {
-			xbell();
+			/*xbell();*/
 		}
 		break;
 	case '\033': /* ESC */
@@ -2181,13 +2181,13 @@ eschandle(Term *term, uchar ascii)
 	case 'c': /* RIS -- Reset to initial state */
 		treset(term);
 		resettitle();
-		xloadcols();
+		/*xloadcols();*/
 		break;
 	case '=': /* DECPAM -- Application keypad */
-		xsetmode(1, MODE_APPKEYPAD);
+		/* xsetmode(1, MODE_APPKEYPAD); */
 		break;
 	case '>': /* DECPNM -- Normal keypad */
-		xsetmode(0, MODE_APPKEYPAD);
+		/* xsetmode(0, MODE_APPKEYPAD); */
 		break;
 	case '7': /* DECSC -- Save Cursor */
 		tcursor(term, CURSOR_SAVE);
@@ -2473,7 +2473,7 @@ tresize(Term *term, int col, int row)
 void
 resettitle(void)
 {
-	xsettitle(NULL);
+	/*xsettitle(NULL);*/
 }
 
 void
@@ -2486,7 +2486,7 @@ drawregion(Term *term, int x1, int y1, int x2, int y2)
 			continue;
 
 		term->dirty[y] = 0;
-		xdrawline(term->line[y], x1, y, x2);
+		/*xdrawline(term->line[y], x1, y, x2);*/
 	}
 }
 
@@ -2507,13 +2507,14 @@ tdraw(Term *term)
 		cx--;
 
 	drawregion(term, 0, 0, term->col, term->row);
-	xdrawcursor(cx, term->c.y, term->line[term->c.y][cx],
-			term->ocx, term->ocy, term->line[term->ocy][term->ocx]);
+	/*xdrawcursor(cx, term->c.y, term->line[term->c.y][cx],
+			term->ocx, term->ocy, term->line[term->ocy][term->ocx]); */
 	term->ocx = cx;
 	term->ocy = term->c.y;
-	xfinishdraw();
+	/* xfinishdraw();
 	if (ocx != term->ocx || ocy != term->ocy)
 		xximspot(term->ocx, term->ocy);
+		*/
 }
 
 void
