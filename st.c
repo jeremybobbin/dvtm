@@ -86,13 +86,6 @@ enum escape_state {
 };
 
 typedef struct {
-	Glyph attr; /* current char attributes */
-	int x;
-	int y;
-	char state;
-} TCursor;
-
-typedef struct {
 	int mode;
 	int type;
 	int snap;
@@ -183,9 +176,9 @@ static void tstrsequence(Term *, uchar);
 
 static void drawregion(Term *, int, int, int, int);
 
-static void selnormalize(void);
-static void selscroll(int, int);
-static void selsnap(int *, int *, int);
+static void selnormalize(Term *);
+static void selscroll(Term *, int, int);
+static void selsnap(Term *, int *, int *, int);
 
 static size_t utf8decode(const char *, Rune *, size_t);
 static Rune utf8decodebyte(char, size_t *);
@@ -381,7 +374,7 @@ base64dec(const char *src)
 }
 
 void
-selinit(void)
+selinit(Term *term)
 {
 	sel.mode = SEL_IDLE;
 	sel.snap = 0;
@@ -403,16 +396,16 @@ tlinelen(Term *term, int y)
 }
 
 void
-selstart(int col, int row, int snap)
+selstart(Term *term, int col, int row, int snap)
 {
-	selclear();
+	selclear(term);
 	sel.mode = SEL_EMPTY;
 	sel.type = SEL_REGULAR;
 	sel.alt = IS_SET(MODE_ALTSCREEN);
 	sel.snap = snap;
 	sel.oe.x = sel.ob.x = col;
 	sel.oe.y = sel.ob.y = row;
-	selnormalize();
+	selnormalize(term);
 
 	if (sel.snap != 0)
 		sel.mode = SEL_READY;
@@ -420,14 +413,14 @@ selstart(int col, int row, int snap)
 }
 
 void
-selextend(int col, int row, int type, int done)
+selextend(Term *term, int col, int row, int type, int done)
 {
 	int oldey, oldex, oldsby, oldsey, oldtype;
 
 	if (sel.mode == SEL_IDLE)
 		return;
 	if (done && sel.mode == SEL_EMPTY) {
-		selclear();
+		selclear(term);
 		return;
 	}
 
@@ -439,7 +432,7 @@ selextend(int col, int row, int type, int done)
 
 	sel.oe.x = col;
 	sel.oe.y = row;
-	selnormalize();
+	selnormalize(term);
 	sel.type = type;
 
 	if (oldey != sel.oe.y || oldex != sel.oe.x || oldtype != sel.type || sel.mode == SEL_EMPTY)
@@ -449,7 +442,7 @@ selextend(int col, int row, int type, int done)
 }
 
 void
-selnormalize(void)
+selnormalize(Term *term)
 {
 	int i;
 
@@ -463,8 +456,8 @@ selnormalize(void)
 	sel.nb.y = MIN(sel.ob.y, sel.oe.y);
 	sel.ne.y = MAX(sel.ob.y, sel.oe.y);
 
-	selsnap(&sel.nb.x, &sel.nb.y, -1);
-	selsnap(&sel.ne.x, &sel.ne.y, +1);
+	selsnap(term, &sel.nb.x, &sel.nb.y, -1);
+	selsnap(term, &sel.ne.x, &sel.ne.y, +1);
 
 	/* expand selection over line breaks */
 	if (sel.type == SEL_RECTANGULAR)
@@ -477,7 +470,7 @@ selnormalize(void)
 }
 
 int
-selected(int x, int y)
+selected(Term *term, int x, int y)
 {
 	if (sel.mode == SEL_EMPTY || sel.ob.x == -1 ||
 			sel.alt != IS_SET(MODE_ALTSCREEN))
@@ -493,7 +486,7 @@ selected(int x, int y)
 }
 
 void
-selsnap(int *x, int *y, int direction)
+selsnap(Term *term, int *x, int *y, int direction)
 {
 	int newx, newy, xt, yt;
 	int delim, prevdelim;
@@ -566,7 +559,7 @@ selsnap(int *x, int *y, int direction)
 }
 
 char *
-getsel(void)
+getsel(Term *term)
 {
 	char *str, *ptr;
 	int y, bufsize, lastx, linelen;
@@ -620,7 +613,7 @@ getsel(void)
 }
 
 void
-selclear(void)
+selclear(Term *term)
 {
 	if (sel.ob.x == -1)
 		return;
@@ -922,7 +915,7 @@ ttyresize(Term *term, int tw, int th)
 }
 
 void
-ttyhangup(Term *term, )
+ttyhangup(Term *term)
 {
 	/* Send SIGHUP to shell */
 	kill(pid, SIGHUP);
@@ -1054,7 +1047,7 @@ tscrolldown(Term *term, int orig, int n)
 		term->line[i-n] = temp;
 	}
 
-	selscroll(orig, n);
+	selscroll(term, orig, n);
 }
 
 void
@@ -1074,7 +1067,7 @@ tscrollup(Term *term, int orig, int n)
 		term->line[i+n] = temp;
 	}
 
-	selscroll(orig, -n);
+	selscroll(term, orig, -n);
 }
 
 void
@@ -1085,7 +1078,7 @@ selscroll(Term *term, int orig, int n)
 
 	if (BETWEEN(sel.ob.y, orig, term->bot) || BETWEEN(sel.oe.y, orig, term->bot)) {
 		if ((sel.ob.y += n) > term->bot || (sel.oe.y += n) < term->top) {
-			selclear();
+			selclear(term);
 			return;
 		}
 		if (sel.type == SEL_RECTANGULAR) {
@@ -1103,7 +1096,7 @@ selscroll(Term *term, int orig, int n)
 				sel.oe.x = term->col;
 			}
 		}
-		selnormalize();
+		selnormalize(term);
 	}
 }
 
@@ -1230,8 +1223,8 @@ tclearregion(Term *term, int x1, int y1, int x2, int y2)
 		term->dirty[y] = 1;
 		for (x = x1; x <= x2; x++) {
 			gp = &term->line[y][x];
-			if (selected(x, y))
-				selclear();
+			if (selected(term, x, y))
+				selclear(term);
 			gp->fg = term->c.attr.fg;
 			gp->bg = term->c.attr.bg;
 			gp->mode = 0;
@@ -1289,7 +1282,7 @@ tdeleteline(Term *term, int n)
 }
 
 int32_t
-tdefcolor(int *attr, int *npar, int l)
+tdefcolor(Term *term, int *attr, int *npar, int l)
 {
 	int32_t idx = -1;
 	uint r, g, b;
@@ -1407,14 +1400,14 @@ tsetattr(Term *term, int *attr, int l)
 			term->c.attr.mode &= ~ATTR_STRUCK;
 			break;
 		case 38:
-			if ((idx = tdefcolor(attr, &i, l)) >= 0)
+			if ((idx = tdefcolor(term, attr, &i, l)) >= 0)
 				term->c.attr.fg = idx;
 			break;
 		case 39:
 			term->c.attr.fg = defaultfg;
 			break;
 		case 48:
-			if ((idx = tdefcolor(attr, &i, l)) >= 0)
+			if ((idx = tdefcolor(term, attr, &i, l)) >= 0)
 				term->c.attr.bg = idx;
 			break;
 		case 49:
@@ -1616,13 +1609,11 @@ csihandle(Term *term)
 		switch (csiescseq.arg[0]) {
 		case 0:
 			tdump(term);
-			tdump(term);
 			break;
 		case 1:
 			tdumpline(term, term->c.y);
 			break;
 		case 2:
-			tdumpsel(term);
 			tdumpsel(term);
 			break;
 		case 4:
@@ -1871,7 +1862,7 @@ strhandle(Term *term)
 				 * TODO if defaultbg color is changed, borders
 				 * are dirty
 				 */
-				redraw(term);
+				tredraw(term);
 			}
 			return;
 		}
@@ -1975,22 +1966,20 @@ void
 printscreen(const Arg *arg)
 {
 	tdump(term);
-	tdump(term);
 }
 
 void
-printsel(const Arg *arg)
+printsel(Term *term, const Arg *arg)
 {
 	tdumpsel(term);
-	tdumpsel(term);
 }
 
 void
-tdumpsel(void)
+tdumpsel(Term *term)
 {
 	char *ptr;
 
-	if ((ptr = getsel())) {
+	if ((ptr = getsel(term))) {
 		tprinter(term, ptr, strlen(ptr));
 		free(ptr);
 	}
@@ -2396,7 +2385,7 @@ check_control_code:
 		return;
 	}
 	if (sel.ob.x != -1 && BETWEEN(term->c.y, sel.ob.y, sel.oe.y))
-		selclear();
+		selclear(term);
 
 	gp = &term->line[term->c.y][term->c.x];
 	if (IS_SET(MODE_WRAP) && (term->c.state & CURSOR_WRAPNEXT)) {
@@ -2564,7 +2553,7 @@ drawregion(Term *term, int x1, int y1, int x2, int y2)
 }
 
 void
-draw(Term *term)
+tdraw(Term *term)
 {
 	int cx = term->c.x, ocx = term->ocx, ocy = term->ocy;
 
@@ -2590,8 +2579,8 @@ draw(Term *term)
 }
 
 void
-redraw(Term *term)
+tredraw(Term *term)
 {
 	tfulldirt(term);
-	draw(term);
+	tdraw(term);
 }

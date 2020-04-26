@@ -77,6 +77,13 @@ typedef union {
 	const char *s;
 } Arg;
 
+typedef struct {
+	Glyph attr; /* current char attributes */
+	int x;
+	int y;
+	char state;
+} TCursor;
+
 /* Internal representation of the screen */
 typedef struct {
 	int row;      /* nb row */
@@ -98,32 +105,32 @@ typedef struct {
 } Term;
 
 void die(const char *, ...);
-void redraw(Term *);
-void draw(Term *);
+void tredraw(Term *);
+void tdraw(Term *);
 
 void printscreen(const Arg *);
-void printsel(const Arg *);
+void printsel(Term *, const Arg *);
 void sendbreak(const Arg *);
-void toggleprinter(const Arg *);
+void toggleprinter(Term *, const Arg *);
 
 int tattrset(Term *, int);
 void tnew(Term *, int, int);
 void tresize(Term *, int, int);
 void tsetdirtattr(Term *, int);
-void ttyhangup(Term *, );
+void ttyhangup(Term *);
 int ttynew(Term *, char *, char *, char *, char **);
-size_t ttyread(Term *, );
+size_t ttyread(Term *);
 void ttyresize(Term *, int, int);
 void ttywrite(Term *, const char *, size_t, int);
 
 void resettitle(void);
 
-void selclear(void);
-void selinit(void);
-void selstart(int, int, int);
-void selextend(int, int, int, int);
-int selected(int, int);
-char *getsel(void);
+void selclear(Term *);
+void selinit(Term *);
+void selstart(Term *, int, int, int);
+void selextend(Term *, int, int, int, int);
+int selected(Term *, int, int);
+char *getsel(Term *);
 
 size_t utf8encode(Rune, char *);
 
