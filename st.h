@@ -108,7 +108,7 @@ void die(const char *, ...);
 void tredraw(Term *);
 void tdraw(Term *);
 
-void printscreen(const Arg *);
+void printscreen(Term *, const Arg *);
 void printsel(Term *, const Arg *);
 void sendbreak(const Arg *);
 void toggleprinter(Term *, const Arg *);
@@ -118,7 +118,7 @@ void tnew(Term *, int, int);
 void tresize(Term *, int, int);
 void tsetdirtattr(Term *, int);
 void ttyhangup(Term *);
-int ttynew(Term *, char *, char *, char *, char **);
+int ttynew(Term *, char *, char *, char *, char **, int *, int *);
 size_t ttyread(Term *);
 void ttyresize(Term *, int, int);
 void ttywrite(Term *, const char *, size_t, int);

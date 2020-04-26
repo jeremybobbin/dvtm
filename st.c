@@ -729,9 +729,19 @@ stty(char **args)
 }
 
 int
-ttynew(Term *term, char *line, char *cmd, char *out, char **args)
+ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *from)
 {
 	int m, s;
+	int vt2ed[2], ed2vt[2];
+
+	if (to && pipe(vt2ed)) {
+		*to = -1;
+		to = NULL;
+	}
+	if (from && pipe(ed2vt)) {
+		*from = -1;
+		from = NULL;
+	}
 
 	if (out) {
 		term->mode |= MODE_PRINT;
@@ -761,6 +771,19 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args)
 		die("fork failed: %s\n", strerror(errno));
 		break;
 	case 0:
+
+		if (to) {
+			close(vt2ed[1]);
+			dup2(vt2ed[0], STDIN_FILENO);
+			close(vt2ed[0]);
+		}
+
+		if (from) {
+			close(ed2vt[0]);
+			dup2(ed2vt[1], STDOUT_FILENO);
+			close(ed2vt[1]);
+		}
+
 		close(iofd);
 		setsid(); /* create a new process group */
 		dup2(s, 0);
@@ -786,6 +809,17 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args)
 		signal(SIGCHLD, sigchld);
 		break;
 	}
+
+	if (to) {
+		close(vt2ed[0]);
+		*to = vt2ed[1];
+	}
+
+	if (from) {
+		close(ed2vt[1]);
+		*from = ed2vt[0];
+	}
+
 	return cmdfd;
 }
 
@@ -1931,7 +1965,7 @@ strdump(void)
 }
 
 void
-strreset(void)
+strreset(Term *term)
 {
 	strescseq = (STREscape){
 		.buf = xrealloc(strescseq.buf, STR_BUF_SIZ),
@@ -1940,7 +1974,7 @@ strreset(void)
 }
 
 void
-sendbreak(const Arg *arg)
+sendbreak(Term *term, const Arg *arg)
 {
 	if (tcsendbreak(cmdfd, 0))
 		perror("Error sending break");
@@ -1963,7 +1997,7 @@ toggleprinter(Term *term, const Arg *arg)
 }
 
 void
-printscreen(const Arg *arg)
+printscreen(Term *term, const Arg *arg)
 {
 	tdump(term);
 }
