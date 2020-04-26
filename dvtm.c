@@ -36,7 +36,7 @@
 #if defined __CYGWIN__ || defined __sun
 # include <termios.h>
 #endif
-#include "vt.h"
+#include "st.h"
 
 #ifdef PDCURSES
 int ESCDELAY;
