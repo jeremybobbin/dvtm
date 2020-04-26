@@ -63,8 +63,8 @@ typedef struct {
 typedef struct Client Client;
 struct Client {
 	WINDOW *window;
-	Vt *term;
-	Vt *editor, *app;
+	Term *term;
+	Term *editor, *app;
 	int editor_fds[2];
 	volatile sig_atomic_t editor_died;
 	const char *cmd;
@@ -619,7 +619,7 @@ applycolorrules(Client *c) {
 }
 
 static void
-term_title_handler(Vt *term, const char *title) {
+term_title_handler(Term *term, const char *title) {
 	Client *c = (Client *)vt_data_get(term);
 	if (title)
 		strncpy(c->title, title, sizeof(c->title) - 1);
@@ -631,7 +631,7 @@ term_title_handler(Vt *term, const char *title) {
 }
 
 static void
-term_urgent_handler(Vt *term) {
+term_urgent_handler(Term *term) {
 	Client *c = (Client *)vt_data_get(term);
 	c->urgent = true;
 	printf("\a");
@@ -1085,8 +1085,10 @@ create(const char *args[]) {
 	if (args && args[2] && !strcmp(args[2], "$CWD"))
 		free(cwd);
 	vt_data_set(c->term, c);
+	/* 
 	vt_title_handler_set(c->term, term_title_handler);
 	vt_urgent_handler_set(c->term, term_urgent_handler);
+	*/
 	applycolorrules(c);
 	c->x = wax;
 	c->y = way;
