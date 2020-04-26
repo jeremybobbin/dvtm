@@ -27,14 +27,6 @@
  #include <libutil.h>
 #endif
 
-/* Arbitrary sizes */
-#define UTF_INVALID   0xFFFD
-#define UTF_SIZ       4
-#define ESC_BUF_SIZ   (128*UTF_SIZ)
-#define ESC_ARG_SIZ   16
-#define STR_BUF_SIZ   ESC_BUF_SIZ
-#define STR_ARG_SIZ   ESC_ARG_SIZ
-
 /* macros */
 #define IS_SET(flag)		((term->mode & (flag)) != 0)
 #define ISCONTROLC0(c)		(BETWEEN(c, 0, 0x1f) || (c) == '\177')
@@ -42,103 +34,21 @@
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)		(u && wcschr(worddelimiters, u))
 
-enum term_mode {
-	MODE_WRAP        = 1 << 0,
-	MODE_INSERT      = 1 << 1,
-	MODE_ALTSCREEN   = 1 << 2,
-	MODE_CRLF        = 1 << 3,
-	MODE_ECHO        = 1 << 4,
-	MODE_PRINT       = 1 << 5,
-	MODE_UTF8        = 1 << 6,
-	MODE_SIXEL       = 1 << 7,
-};
-
-enum cursor_movement {
-	CURSOR_SAVE,
-	CURSOR_LOAD
-};
-
-enum cursor_state {
-	CURSOR_DEFAULT  = 0,
-	CURSOR_WRAPNEXT = 1,
-	CURSOR_ORIGIN   = 2
-};
-
-enum charset {
-	CS_GRAPHIC0,
-	CS_GRAPHIC1,
-	CS_UK,
-	CS_USA,
-	CS_MULTI,
-	CS_GER,
-	CS_FIN
-};
-
-enum escape_state {
-	ESC_START      = 1,
-	ESC_CSI        = 2,
-	ESC_STR        = 4,  /* OSC, PM, APC */
-	ESC_ALTCHARSET = 8,
-	ESC_STR_END    = 16, /* a final string was encountered */
-	ESC_TEST       = 32, /* Enter in test mode */
-	ESC_UTF8       = 64,
-	ESC_DCS        =128,
-};
-
-typedef struct {
-	int mode;
-	int type;
-	int snap;
-	/*
-	 * Selection variables:
-	 * nb – normalized coordinates of the beginning of the selection
-	 * ne – normalized coordinates of the end of the selection
-	 * ob – original coordinates of the beginning of the selection
-	 * oe – original coordinates of the end of the selection
-	 */
-	struct {
-		int x, y;
-	} nb, ne, ob, oe;
-
-	int alt;
-} Selection;
-
-/* CSI Escape sequence structs */
-/* ESC '[' [[ [<priv>] <arg> [;]] <mode> [<mode>]] */
-typedef struct {
-	char buf[ESC_BUF_SIZ]; /* raw string */
-	size_t len;            /* raw string length */
-	char priv;
-	int arg[ESC_ARG_SIZ];
-	int narg;              /* nb of args */
-	char mode[2];
-} CSIEscape;
-
-/* STR Escape sequence structs */
-/* ESC type [[ [<priv>] <arg> [;]] <mode>] ESC '\' */
-typedef struct {
-	char type;             /* ESC type ... */
-	char *buf;             /* allocated raw string */
-	size_t siz;            /* allocation size */
-	size_t len;            /* raw string length */
-	char *args[STR_ARG_SIZ];
-	int narg;              /* nb of args */
-} STREscape;
 
 static void execsh(char *, char **);
 static void stty(char **);
 static void sigchld(int);
 static void ttywriteraw(Term *term, const char *, size_t);
 
-static void csidump(void);
+static void csidump(Term *);
 static void csihandle(Term *);
-static void csiparse(void);
-static void csireset(void);
+static void csiparse(Term *);
+static void csireset(Term *);
 static int eschandle(Term *, uchar);
-static void strdump(void);
+static void strdump(Term *);
 static void strhandle(Term *);
-static void strparse(void);
-static void strreset(void);
+static void strparse(Term *);
+static void strreset(Term *);
 
 static void tprinter(Term *, char *, size_t);
 static void tdumpsel(Term *);
@@ -380,7 +290,7 @@ tlinelen(Term *term, int y)
 {
 	int i = term->col;
 
-	if (term->line[y][i - 1].mode & ATTR_WRAP)
+	if (((Glyph)term->line[y][i - 1]).mode & ATTR_WRAP)
 		return i;
 
 	while (i > 0 && term->line[y][i - 1].u == ' ')
@@ -507,7 +417,7 @@ selsnap(Term *term, int *x, int *y, int direction)
 					yt = *y, xt = *x;
 				else
 					yt = newy, xt = newx;
-				if (!(term->line[yt][xt].mode & ATTR_WRAP))
+				if (!(((Glyph)term->line[yt][xt]).mode & ATTR_WRAP))
 					break;
 			}
 
@@ -535,14 +445,14 @@ selsnap(Term *term, int *x, int *y, int direction)
 		*x = (direction < 0) ? 0 : term->col - 1;
 		if (direction < 0) {
 			for (; *y > 0; *y += direction) {
-				if (!(term->line[*y-1][term->col-1].mode
+				if (!(((Glyph)term->line[*y-1][term->col-1]).mode
 						& ATTR_WRAP)) {
 					break;
 				}
 			}
 		} else if (direction > 0) {
 			for (; *y < term->row-1; *y += direction) {
-				if (!(term->line[*y][term->col-1].mode
+				if (!(((Glyph)term->line[*y][term->col-1]).mode
 						& ATTR_WRAP)) {
 					break;
 				}
@@ -647,10 +557,10 @@ execsh(char *cmd, char **args)
 	if (args) {
 		prog = args[0];
 		arg = NULL;
-	} else if (scroll) {
+	} /* else if (scroll) {
 		prog = scroll;
 		arg = utmp ? utmp : sh;
-	} else if (utmp) {
+	} */ else if (utmp) {
 		prog = utmp;
 		arg = NULL;
 	} else {
@@ -666,7 +576,7 @@ execsh(char *cmd, char **args)
 	setenv("USER", pw->pw_name, 1);
 	setenv("SHELL", sh, 1);
 	setenv("HOME", pw->pw_dir, 1);
-	setenv("TERM", termname, 1);
+	/* setenv("TERM", termname, 1); */
 
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGHUP, SIG_DFL);
@@ -679,7 +589,7 @@ execsh(char *cmd, char **args)
 	_exit(1);
 }
 
-void
+/* void
 sigchld(int a)
 {
 	int stat;
@@ -696,7 +606,7 @@ sigchld(int a)
 	else if (WIFSIGNALED(stat))
 		die("child terminated due to signal %d\n", WTERMSIG(stat));
 	exit(0);
-}
+} */
 
 void
 stty(char **args)
@@ -800,7 +710,7 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *
 #endif
 		close(s);
 		term->cmdfd = m;
-		signal(SIGCHLD, sigchld);
+		/* signal(SIGCHLD, sigchld); */
 		break;
 	}
 
@@ -956,7 +866,7 @@ tattrset(Term *term, int attr)
 
 	for (i = 0; i < term->row-1; i++) {
 		for (j = 0; j < term->col-1; j++) {
-			if (term->line[i][j].mode & attr)
+			if (((Glyph)term->line[i][j]).mode & attr)
 				return 1;
 		}
 	}
@@ -983,7 +893,7 @@ tsetdirtattr(Term *term, int attr)
 
 	for (i = 0; i < term->row-1; i++) {
 		for (j = 0; j < term->col-1; j++) {
-			if (term->line[i][j].mode & attr) {
+			if (((Glyph)term->line[i][j]).mode & attr) {
 				tsetdirt(term, i, i);
 				break;
 			}
@@ -1142,7 +1052,7 @@ tnewline(Term *term, int first_col)
 }
 
 void
-csiparse(void)
+csiparse(Term *term)
 {
 	char *p = term->csiescseq.buf, *np;
 	long int v;
@@ -1216,12 +1126,12 @@ tsetchar(Term *term, Rune u, Glyph *attr, int x, int y)
 	   BETWEEN(u, 0x41, 0x7e) && vt100_0[u - 0x41])
 		utf8decode(vt100_0[u - 0x41], &u, UTF_SIZ);
 
-	if (term->line[y][x].mode & ATTR_WIDE) {
+	if (((Glyph)term->line[y][x]).mode & ATTR_WIDE) {
 		if (x+1 < term->col) {
 			term->line[y][x+1].u = ' ';
 			term->line[y][x+1].mode &= ~ATTR_WDUMMY;
 		}
-	} else if (term->line[y][x].mode & ATTR_WDUMMY) {
+	} else if (((Glyph)term->line[y][x]).mode & ATTR_WDUMMY) {
 		term->line[y][x-1].u = ' ';
 		term->line[y][x-1].mode &= ~ATTR_WIDE;
 	}
@@ -1454,7 +1364,7 @@ tsetattr(Term *term, int *attr, int l)
 				fprintf(stderr,
 					"erresc(default): gfx attr %d unknown\n",
 					attr[i]);
-				csidump();
+				csidump(term);
 			}
 			break;
 		}
@@ -1617,7 +1527,7 @@ csihandle(Term *term)
 	default:
 	unknown:
 		fprintf(stderr, "erresc: unknown csi ");
-		csidump();
+		csidump(term);
 		/* die(""); */
 		break;
 	case '@': /* ICH -- Insert <n> blank char */
@@ -1814,7 +1724,7 @@ csihandle(Term *term)
 }
 
 void
-csidump(void)
+csidump(Term *term)
 {
 	size_t i;
 	uint c;
@@ -1838,7 +1748,7 @@ csidump(void)
 }
 
 void
-csireset(void)
+csireset(Term *term)
 {
 	memset(&term->csiescseq, 0, sizeof(term->csiescseq));
 }
@@ -1850,7 +1760,7 @@ strhandle(Term *term)
 	int j, narg, par;
 
 	term->esc &= ~(ESC_STR_END|ESC_STR);
-	strparse();
+	strparse(term);
 	par = (narg = term->strescseq.narg) ? atoi(term->strescseq.args[0]) : 0;
 
 	switch (term->strescseq.type) {
@@ -1906,11 +1816,11 @@ strhandle(Term *term)
 	}
 
 	fprintf(stderr, "erresc: unknown str ");
-	strdump();
+	strdump(term);
 }
 
 void
-strparse(void)
+strparse(Term *term)
 {
 	int c;
 	char *p = term->strescseq.buf;
@@ -1932,7 +1842,7 @@ strparse(void)
 }
 
 void
-strdump(void)
+strdump(Term *term)
 {
 	size_t i;
 	uint c;
@@ -2142,7 +2052,7 @@ tcontrolcode(Term *term, uchar ascii)
 		}
 		break;
 	case '\033': /* ESC */
-		csireset();
+		csireset(term);
 		term->esc &= ~(ESC_CSI|ESC_ALTCHARSET|ESC_TEST);
 		term->esc |= ESC_START;
 		return;
@@ -2153,7 +2063,7 @@ tcontrolcode(Term *term, uchar ascii)
 	case '\032': /* SUB */
 		tsetchar(term, '?', &term->c.attr, term->c.x, term->c.y);
 	case '\030': /* CAN */
-		csireset();
+		csireset(term);
 		break;
 	case '\005': /* ENQ (IGNORED) */
 	case '\000': /* NUL (IGNORED) */
@@ -2390,7 +2300,7 @@ check_control_code:
 					|| term->csiescseq.len >= \
 					sizeof(term->csiescseq.buf)-1) {
 				term->esc = 0;
-				csiparse();
+				csiparse(term);
 				csihandle(term);
 			}
 			return;
@@ -2591,9 +2501,9 @@ tdraw(Term *term)
 	/* adjust cursor position */
 	LIMIT(term->ocx, 0, term->col-1);
 	LIMIT(term->ocy, 0, term->row-1);
-	if (term->line[term->ocy][term->ocx].mode & ATTR_WDUMMY)
+	if (((Glyph)term->line[term->ocy][term->ocx]).mode & ATTR_WDUMMY)
 		term->ocx--;
-	if (term->line[term->c.y][cx].mode & ATTR_WDUMMY)
+	if (((Glyph)term->line[term->c.y][cx]).mode & ATTR_WDUMMY)
 		cx--;
 
 	drawregion(term, 0, 0, term->col, term->row);
