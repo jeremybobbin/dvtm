@@ -28,6 +28,38 @@
 #define TRUECOLOR(r,g,b)	(1 << 24 | (r) << 16 | (g) << 8 | (b))
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 
+/* taken from st/config.def.h */
+char *utmp = NULL;
+char *stty_args = "stty raw pass8 nl -echo -iexten -cstopb 38400";
+
+/* identification sequence returned in DA and DECID */
+char *vtiden = "\033[?6c";
+
+/* Kerning / character bounding-box multipliers */
+static float cwscale = 1.0;
+static float chscale = 1.0;
+
+unsigned int defaultfg = 7;
+unsigned int defaultbg = 0;
+unsigned int tabspaces = 8;
+
+/*
+ * word delimiter string
+ *
+ * More advanced example: L" `'\"()[]{}"
+ */
+wchar_t *worddelimiters = L" ";
+
+/* selection timeouts (in milliseconds) */
+static unsigned int doubleclicktimeout = 300;
+static unsigned int tripleclicktimeout = 600;
+
+/* alt screens */
+int allowaltscreen = 1;
+
+
+
+
 enum glyph_attribute {
 	ATTR_NULL       = 0,
 	ATTR_BOLD       = 1 << 0,
