@@ -247,7 +247,7 @@ void sendbreak(Term *, const Arg *);
 void toggleprinter(Term *, const Arg *);
 
 int tattrset(Term *, int);
-void tnew(Term *, int, int);
+Term* tnew(int, int, int);
 void tresize(Term *, int, int);
 void tsetdirtattr(Term *, int);
 void ttyhangup(Term *);

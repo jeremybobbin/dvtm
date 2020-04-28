@@ -960,12 +960,16 @@ treset(Term *term)
 	}
 }
 
-void
-tnew(Term *term, int col, int row)
+Term *
+tnew(int col, int row, int hist)
 {
+	Term *term;
+
+	term = xmalloc(sizeof(Term));
 	*term = (Term){ .c = { .attr = { .fg = defaultfg, .bg = defaultbg } } };
 	tresize(term, col, row);
 	treset(term);
+	return term;
 }
 
 void

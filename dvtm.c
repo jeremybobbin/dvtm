@@ -1058,7 +1058,7 @@ create(const char *args[]) {
 		return;
 	}
 
-	c->term = c->app = vt_create(screen.h, screen.w, screen.history);
+	c->term = c->app = tnew(screen.h, screen.w, screen.history);
 	if (!c->term) {
 		delwin(c->window);
 		free(c);
@@ -1107,7 +1107,7 @@ copymode(const char *args[]) {
 
 	bool colored = strstr(args[0], "pager") != NULL;
 
-	if (!(sel->editor = vt_create(sel->h - sel->has_title_line, sel->w, 0)))
+	if (!(sel->editor = tnew(sel->h - sel->has_title_line, sel->w, 0)))
 		return;
 
 	int *to = &sel->editor_fds[0];
