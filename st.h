@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <curses.h>
 
 /* Arbitrary sizes */
 #define UTF_INVALID   0xFFFD
@@ -231,13 +232,14 @@ typedef struct {
 	CSIEscape csiescseq;
 	STREscape strescseq;
 	int iofd;
-	int cmdfd;
+	int cmdfd; /* psuedo-terminal file descriptor */
 	pid_t pid;
+	void *data;
 } Term;
 
 void die(const char *, ...);
 void tredraw(Term *);
-void tdraw(Term *);
+void tdraw(Term *, WINDOW *, int, int);
 
 void printscreen(Term *, const Arg *);
 void printsel(Term *, const Arg *);
@@ -253,6 +255,8 @@ int ttynew(Term *, char *, char *, char *, char **, int *, int *);
 size_t ttyread(Term *);
 void ttyresize(Term *, int, int);
 void ttywrite(Term *, const char *, size_t, int);
+void **ttydata(Term *);
+int tpty(Term *);
 
 void resettitle(void);
 

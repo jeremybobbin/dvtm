@@ -620,7 +620,7 @@ applycolorrules(Client *c) {
 
 static void
 term_title_handler(Term *term, const char *title) {
-	Client *c = (Client *)vt_data_get(term);
+	Client *c = (Client *)*ttydata(term);
 	if (title)
 		strncpy(c->title, title, sizeof(c->title) - 1);
 	c->title[title ? sizeof(c->title) - 1 : 0] = '\0';
@@ -632,7 +632,7 @@ term_title_handler(Term *term, const char *title) {
 
 static void
 term_urgent_handler(Term *term) {
-	Client *c = (Client *)vt_data_get(term);
+	Client *c = (Client *)*ttydata(term);
 	c->urgent = true;
 	printf("\a");
 	fflush(stdout);
@@ -669,9 +669,9 @@ resize_client(Client *c, int w, int h) {
 	}
 	if (resize_window || c->has_title_line != has_title_line) {
 		c->has_title_line = has_title_line;
-		vt_resize(c->app, h - has_title_line, w);
+		ttyresize(c->app, h - has_title_line, w);
 		if (c->editor)
-			vt_resize(c->editor, h - has_title_line, w);
+			ttyresize(c->editor, h - has_title_line, w);
 	}
 }
 
@@ -719,7 +719,7 @@ sigchld_handler(int sig) {
 				c->died = true;
 				break;
 			}
-			if (c->editor && vt_pid_get(c->editor) == pid) {
+			if (c->editor && c->editor->pid == pid) {
 				c->editor_died = true;
 				break;
 			}
@@ -891,7 +891,7 @@ keypress(int code) {
 		if (is_content_visible(c)) {
 			c->urgent = false;
 			if (code == '\e')
-				vt_write(c->term, buf, len);
+				ttywrite(c->term, buf, len, 0);
 			else
 				vt_keypress(c->term, code);
 			if (key != -1)
@@ -1081,10 +1081,12 @@ create(const char *args[]) {
 
 	if (args && args[2])
 		cwd = !strcmp(args[2], "$CWD") ? getcwd_by_pid(sel) : (char*)args[2];
-	c->pid = vt_forkpty(c->term, shell, pargs, cwd, env, NULL, NULL);
+
+	/* ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *from) */
+	c->pid = ttynew(c->term, NULL, shell, NULL, pargs, NULL, NULL);
 	if (args && args[2] && !strcmp(args[2], "$CWD"))
 		free(cwd);
-	vt_data_set(c->term, c);
+	*ttydata(c->term) = (void *) c;
 	/* 
 	vt_title_handler_set(c->term, term_title_handler);
 	vt_urgent_handler_set(c->term, term_urgent_handler);
@@ -1118,7 +1120,7 @@ copymode(const char *args[]) {
 	snprintf(argline, sizeof(argline), "+%d", line);
 	argv[1] = argline;
 
-	if (vt_forkpty(sel->editor, args[0], argv, NULL, NULL, to, from) < 0) {
+	if (ttynew(sel->editor, NULL, args[0], NULL, argv, to, from) < 0) {
 		vt_destroy(sel->editor);
 		sel->editor = NULL;
 		return;
@@ -1146,7 +1148,7 @@ copymode(const char *args[]) {
 	}
 
 	if (args[1])
-		vt_write(sel->editor, args[1], strlen(args[1]));
+		ttywrite(sel->editor, args[1], strlen(args[1]), 0);
 }
 
 static void
@@ -1297,7 +1299,7 @@ killclient(const char *args[]) {
 static void
 paste(const char *args[]) {
 	if (sel && copyreg.data)
-		vt_write(sel->term, copyreg.data, copyreg.len);
+		ttywrite(sel->term, copyreg.data, copyreg.len, 0);
 }
 
 static void
@@ -1335,7 +1337,7 @@ scrollback(const char *args[]) {
 static void
 send(const char *args[]) {
 	if (sel && args && args[0])
-		vt_write(sel->term, args[0], strlen(args[0]));
+		ttywrite(sel->term, args[0], strlen(args[0]), 0);
 }
 
 static void
@@ -1862,7 +1864,7 @@ main(int argc, char *argv[]) {
 				c = t;
 				continue;
 			}
-			int pty = c->editor ? vt_pty_get(c->editor) : vt_pty_get(c->app);
+			int pty = c->editor ? tpty(c->editor) : tpty(c->app);
 			FD_SET(pty, &rd);
 			nfds = MAX(nfds, pty);
 			c = c->next;
@@ -1912,8 +1914,8 @@ main(int argc, char *argv[]) {
 			handle_statusbar();
 
 		for (Client *c = clients; c; c = c->next) {
-			if (FD_ISSET(vt_pty_get(c->term), &rd)) {
-				if (vt_process(c->term) < 0 && errno == EIO) {
+			if (FD_ISSET(tpty(c->term), &rd)) {
+				if (ttyread(c->term) < 0 && errno == EIO) {
 					if (c->editor)
 						c->editor_died = true;
 					else

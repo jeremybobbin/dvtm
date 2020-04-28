@@ -635,7 +635,7 @@ stty(char **args)
 int
 ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *from)
 {
-	int m, s;
+	int slave;
 	int vt2ed[2], ed2vt[2];
 
 	if (to && pipe(vt2ed)) {
@@ -667,7 +667,7 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *
 	}
 
 	/* seems to work fine on linux, openbsd and freebsd */
-	if (openpty(&m, &s, NULL, NULL, NULL) < 0)
+	if (openpty(&term->cmdfd, &slave, NULL, NULL, NULL) < 0)
 		die("openpty failed: %s\n", strerror(errno));
 
 	switch (term->pid = fork()) {
@@ -690,13 +690,13 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *
 
 		close(term->iofd);
 		setsid(); /* create a new process group */
-		dup2(s, 0);
-		dup2(s, 1);
-		dup2(s, 2);
-		if (ioctl(s, TIOCSCTTY, NULL) < 0)
+		dup2(slave, 0);
+		dup2(slave, 1);
+		dup2(slave, 2);
+		if (ioctl(slave, TIOCSCTTY, NULL) < 0)
 			die("ioctl TIOCSCTTY failed: %s\n", strerror(errno));
-		close(s);
-		close(m);
+		close(slave);
+		close(term->cmdfd);
 #ifdef __OpenBSD__
 		if (pledge("stdio getpw proc exec", NULL) == -1)
 			die("pledge\n");
@@ -708,8 +708,7 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *
 		if (pledge("stdio rpath tty proc", NULL) == -1)
 			die("pledge\n");
 #endif
-		close(s);
-		term->cmdfd = m;
+		close(slave);
 		/* signal(SIGCHLD, sigchld); */
 		break;
 	}
@@ -857,6 +856,18 @@ ttyhangup(Term *term)
 {
 	/* Send SIGHUP to shell */
 	kill(term->pid, SIGHUP);
+}
+
+void **
+ttydata(Term *term)
+{
+	return &term->data;
+}
+
+int
+tpty(Term *term)
+{
+	return &term->cmdfd;
 }
 
 int
@@ -1802,7 +1813,10 @@ strhandle(Term *term)
 				 * TODO if defaultbg color is changed, borders
 				 * are dirty
 				 */
-				tredraw(term);
+
+				/* tredraw(term); */
+				for (int i = 0; i < term->row; i++)
+					term->dirty[i] = 1;
 			//}
 			return;
 		}
@@ -2493,7 +2507,7 @@ drawregion(Term *term, int x1, int y1, int x2, int y2)
 }
 
 void
-tdraw(Term *term)
+tdraw(Term *t, WINDOW *win, int srow, int scol)
 {
 //	int cx = term->c.x, ocx = term->ocx, ocy = term->ocy;
 //
@@ -2517,11 +2531,155 @@ tdraw(Term *term)
 //	if (ocx != term->ocx || ocy != term->ocy)
 //		xximspot(term->ocx, term->ocy);
 //		*/
-}
+//
+//
+// struct Vt {
+// 	Buffer buffer_normal;    /* normal screen buffer */
+// 	Buffer buffer_alternate; /* alternate screen buffer */
+// 	Buffer *buffer;          /* currently active buffer (one of the above) */
+// 	attr_t defattrs;         /* attributes to use for normal/empty cells */
+// 	short deffg, defbg;      /* colors to use for back normal/empty cells (white/black) */
+// 	int pty;                 /* master side pty file descriptor */
+// 	pid_t pid;               /* process id of the process running in this vt */
+// 	/* flags */
+// 	unsigned seen_input:1;
+// 	unsigned insert:1;
+// 	unsigned escaped:1;
+// 	unsigned curshid:1;
+// 	unsigned curskeymode:1;
+// 	unsigned bell:1;
+// 	unsigned relposmode:1;
+// 	unsigned mousetrack:1;
+// 	unsigned graphmode:1;
+// 	unsigned savgraphmode:1;
+// 	bool charsets[2];
+// 	/* buffers and parsing state */
+// 	char rbuf[BUFSIZ];
+// 	char ebuf[BUFSIZ];
+// 	unsigned int rlen, elen;
+// 	int srow, scol;          /* last known offset to display start row, start column */
+// 	char title[256];         /* xterm style window title */
+// 	vt_title_handler_t title_handler; /* hook which is called when title changes */
+// 	vt_urgent_handler_t urgent_handler; /* hook which is called upon bell */
+// 	void *data;              /* user supplied data */
+// };
+//
+//
+// vt.c buffer
+//typedef struct {
+//	Row *lines;            /* array of Row pointers of size 'rows' */
+//	Row *curs_row;         /* row on which the cursor currently resides */
+//	Row *scroll_buf;       /* a ring buffer holding the scroll back content */
+//	Row *scroll_top;       /* row in lines where scrolling region starts */
+//	Row *scroll_bot;       /* row in lines where scrolling region ends */
+//	bool *tabs;            /* a boolean flag for each column whether it is a tab */
+//	int scroll_size;       /* maximal capacity of scroll back buffer (in lines) */
+//	int scroll_index;      /* current index into the ring buffer */
+//	int scroll_above;      /* number of lines above current viewport */
+//	int scroll_below;      /* number of lines below current viewport */
+//	int rows, cols;        /* current dimension of buffer */
+//	int maxcols;           /* allocated cells (maximal cols over time) */
+//	attr_t curattrs, savattrs; /* current and saved attributes for cells */
+//	int curs_col;          /* current cursor column (zero based) */
+//	int curs_srow, curs_scol; /* saved cursor row/colmn (zero based) */
+//	short curfg, curbg;    /* current fore and background colors */
+//	short savfg, savbg;    /* saved colors */
+//} Buffer;
+//
+// st.h Term
+//
+// typedef struct {
+// 	Rune u;           /* character code */
+// 	ushort mode;      /* attribute flags */
+// 	uint32_t fg;      /* foreground  */
+// 	uint32_t bg;      /* background  */
+// } Glyph;
+// 
+// typedef struct {
+// 	int row;      /* nb row */
+// 	int col;      /* nb col */
+// 	Line *line;   /* screen */
+// 	Line *alt;    /* alternate screen */
+// 	int *dirty;   /* dirtyness of lines */
+// 	TCursor c;    /* cursor */
+// 	int ocx;      /* old cursor col */
+// 	int ocy;      /* old cursor row */
+// 	int top;      /* top    scroll limit */
+// 	int bot;      /* bottom scroll limit */
+// 	int mode;     /* terminal mode flags */
+// 	int esc;      /* escape state flags */
+// 	char trantbl[4]; /* charset table translation */
+// 	int charset;  /* current charset */
+// 	int icharset; /* selected charset for sequence */
+// 	int *tabs;
+// 	Selection sel;
+// 	CSIEscape csiescseq;
+// 	STREscape strescseq;
+// 	int iofd;
+// 	int cmdfd; /* psuedo-terminal file descriptor */
+// 	pid_t pid;
+// 	void *data;
+// } Term;
+//
+//
 
-void
-tredraw(Term *term)
-{
-	tfulldirt(term);
-	tdraw(term);
+	/*  srow & scol: last known offsets
+	if (srow != t->srow || scol != t->scol) {
+		vt_dirty(t);
+		t->srow = srow;
+		t->scol = scol;
+	}
+	*/
+
+	for (int i = 0; i < t->row; i++) {
+		Line *row = t->line + i;
+
+		if (!t->dirty[i])
+			continue;
+
+		wmove(win, srow + i, scol);
+		Glyph *cell = NULL;
+		for (int j = 0; j < t->col; j++) {
+			Glyph *prev_cell = cell;
+			cell = row + j;
+			if (!prev_cell || cell->mode != prev_cell->mode
+			    || cell->fg != prev_cell->fg
+			    || cell->bg != prev_cell->bg) {
+				/* if (cell->mode == A_NORMAL)
+					cell->mode = t->defattrs; */
+				if (cell->mode == A_NORMAL)
+					cell->mode = 0;
+				if (cell->fg == -1)
+					cell->fg = defaultfg;
+				if (cell->bg == -1)
+					cell->bg = defaultbg;
+				wattrset(win, cell->mode << NCURSES_ATTR_SHIFT);
+				/* wcolor_set(win, vt_color_get(t, cell->fg, cell->bg), NULL); */
+				wcolor_set(win, 0, NULL);
+			}
+
+			/* if (is_utf8 && cell->u >= 128) { */
+			if (1 && cell->u >= 128) {
+				char buf[MB_CUR_MAX + 1];
+				size_t len = wcrtomb(buf, cell->u, NULL);
+				if (len > 0) {
+					waddnstr(win, buf, len);
+					if (wcwidth(cell->u) > 1)
+						j++;
+				}
+			} else {
+				waddch(win, cell->u > ' ' ? cell->u : ' ');
+			}
+		}
+
+		int x, y;
+		getyx(win, y, x);
+		(void)y;
+		if (x && x < t->col - 1)
+			whline(win, ' ', t->col - x);
+
+		t->dirty[i] = false;
+	}
+
+	wmove(win, srow + t->c.y, scol + t->c.x);
 }
