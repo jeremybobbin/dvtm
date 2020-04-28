@@ -596,7 +596,7 @@ focus(Client *c) {
 			wnoutrefresh(c->window);
 		}
 	}
-	curs_set(c && !c->minimized && vt_cursor_visible(c->term));
+	curs_set(c && !c->minimized && 1 /* vt_cursor_visible(c->term) */);
 }
 
 static void
@@ -1333,7 +1333,7 @@ scrollback(const char *args[]) {
 		vt_scroll(sel->term,  sel->h/2);
 
 	draw(sel);
-	curs_set(vt_cursor_visible(sel->term));
+	curs_set(1 /* vt_cursor_visible(sel->term) */ );
 }
 
 static void
@@ -1934,7 +1934,7 @@ main(int argc, char *argv[]) {
 
 		if (is_content_visible(sel)) {
 			draw_content(sel);
-			curs_set(vt_cursor_visible(sel->term));
+			curs_set(1 /* vt_cursor_visible(sel->term) */);
 			wnoutrefresh(sel->window);
 		}
 	}
