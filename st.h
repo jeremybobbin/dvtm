@@ -250,6 +250,7 @@ int tattrset(Term *, int);
 Term* tnew(int, int, int);
 void tresize(Term *, int, int);
 void tsetdirtattr(Term *, int);
+void tfulldirt(Term *);
 void ttyhangup(Term *);
 int ttynew(Term *, char *, char *, char *, char **, int *, int *);
 size_t ttyread(Term *);

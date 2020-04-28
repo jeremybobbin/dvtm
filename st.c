@@ -76,7 +76,7 @@ static void tsetscroll(Term *, int, int);
 static void tswapscreen(Term *);
 /* static void tsetmode(Term *, int, int, int *, int); */
 static int twrite(Term *, const char *, int, int);
-static void tfulldirt(Term *);
+/* static void tfulldirt(Term *); */
 static void tcontrolcode(Term *, uchar );
 static void tdectest(Term *, char );
 static void tdefutf8(Term *, char);

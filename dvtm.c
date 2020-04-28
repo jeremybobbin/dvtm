@@ -1312,7 +1312,7 @@ static void
 redraw(const char *args[]) {
 	for (Client *c = clients; c; c = c->next) {
 		if (!c->minimized) {
-			vt_dirty(c->term);
+			tfulldirt(c->term);
 			wclear(c->window);
 			wnoutrefresh(c->window);
 		}
@@ -1464,7 +1464,7 @@ toggleminimize(const char *args[]) {
 		for (c = nextvisible(clients); c && (t = nextvisible(c->next)) && !t->minimized; c = t);
 		attachafter(m, c);
 	} else { /* window is no longer minimized, move it to the master area */
-		vt_dirty(m->term);
+		tfulldirt(m->term);
 		detach(m);
 		attach(m);
 	}
@@ -1710,7 +1710,7 @@ handle_editor(Client *c) {
 	vt_destroy(c->editor);
 	c->editor = NULL;
 	c->term = c->app;
-	vt_dirty(c->term);
+	tfulldirt(c->term);
 	draw_content(c);
 	wnoutrefresh(c->window);
 }
