@@ -615,7 +615,7 @@ applycolorrules(Client *c) {
 		}
 	}
 
-	vt_default_colors_set(c->term, attrs, fg, bg);
+	/* vt_default_colors_set(c->term, attrs, fg, bg); */
 }
 
 static void
@@ -959,7 +959,7 @@ setup(void) {
 			if (colors[i].bg256)
 				colors[i].bg = colors[i].bg256;
 		}
-		colors[i].pair = vt_color_reserve(colors[i].fg, colors[i].bg);
+		colors[i].pair = 0 /* vt_color_reserve(colors[i].fg, colors[i].bg) */;
 	}
 	resize_screen();
 	struct sigaction sa;
@@ -1105,6 +1105,7 @@ copymode(const char *args[]) {
 	if (!args || !args[0] || !sel || sel->editor)
 		return;
 
+	/* 
 	bool colored = strstr(args[0], "pager") != NULL;
 
 	if (!(sel->editor = tnew(sel->h - sel->has_title_line, sel->w, 0)))
@@ -1149,6 +1150,7 @@ copymode(const char *args[]) {
 
 	if (args[1])
 		ttywrite(sel->editor, args[1], strlen(args[1]), 0);
+		*/
 }
 
 static void
