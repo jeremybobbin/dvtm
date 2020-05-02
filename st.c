@@ -107,6 +107,61 @@ static uchar utfmask[UTF_SIZ + 1] = {0xC0, 0x80, 0xE0, 0xF0, 0xF8};
 static Rune utfmin[UTF_SIZ + 1] = {       0,    0,  0x80,  0x800,  0x10000};
 static Rune utfmax[UTF_SIZ + 1] = {0x10FFFF, 0x7F, 0x7FF, 0xFFFF, 0x10FFFF};
 
+static const char *keytable[KEY_MAX+1] = {
+	[KEY_ENTER]     = "\r",
+	['\n']          = "\n",
+	/* for the arrow keys the CSI / SS3 sequences are not stored here
+	 * because they depend on the current cursor terminal mode
+	 */
+	[KEY_UP]        = "A",
+	[KEY_DOWN]      = "B",
+	[KEY_RIGHT]     = "C",
+	[KEY_LEFT]      = "D",
+#ifdef KEY_SUP
+	[KEY_SUP]       = "\e[1;2A",
+#endif
+#ifdef KEY_SDOWN
+	[KEY_SDOWN]     = "\e[1;2B",
+#endif
+	[KEY_SRIGHT]    = "\e[1;2C",
+	[KEY_SLEFT]     = "\e[1;2D",
+	[KEY_BACKSPACE] = "\177",
+	[KEY_IC]        = "\e[2~",
+	[KEY_DC]        = "\e[3~",
+	[KEY_PPAGE]     = "\e[5~",
+	[KEY_NPAGE]     = "\e[6~",
+	[KEY_HOME]      = "\e[7~",
+	[KEY_END]       = "\e[8~",
+	[KEY_BTAB]      = "\e[Z",
+	[KEY_SUSPEND]   = "\x1A",  /* Ctrl+Z gets mapped to this */
+	[KEY_F(1)]      = "\e[11~",
+	[KEY_F(2)]      = "\e[12~",
+	[KEY_F(3)]      = "\e[13~",
+	[KEY_F(4)]      = "\e[14~",
+	[KEY_F(5)]      = "\e[15~",
+	[KEY_F(6)]      = "\e[17~",
+	[KEY_F(7)]      = "\e[18~",
+	[KEY_F(8)]      = "\e[19~",
+	[KEY_F(9)]      = "\e[20~",
+	[KEY_F(10)]     = "\e[21~",
+	[KEY_F(11)]     = "\e[23~",
+	[KEY_F(12)]     = "\e[24~",
+	[KEY_F(13)]     = "\e[23~",
+	[KEY_F(14)]     = "\e[24~",
+	[KEY_F(15)]     = "\e[25~",
+	[KEY_F(16)]     = "\e[26~",
+	[KEY_F(17)]     = "\e[28~",
+	[KEY_F(18)]     = "\e[29~",
+	[KEY_F(19)]     = "\e[31~",
+	[KEY_F(20)]     = "\e[32~",
+	[KEY_F(21)]     = "\e[33~",
+	[KEY_F(22)]     = "\e[34~",
+	[KEY_RESIZE]    = "",
+#ifdef KEY_EVENT
+	[KEY_EVENT]     = "",
+#endif
+};
+
 ssize_t
 xwrite(int fd, const char *s, size_t len)
 {
@@ -1911,6 +1966,72 @@ strreset(Term *term)
 		.siz = STR_BUF_SIZ,
 	};
 }
+
+void tkeypress(Term *t, int keycode)
+{
+	/* vt_noscroll(t); */
+
+	if (keycode >= 0 && keycode <= KEY_MAX && keytable[keycode]) {
+		switch (keycode) {
+		case KEY_UP:
+		case KEY_DOWN:
+		case KEY_RIGHT:
+		case KEY_LEFT: {
+			char keyseq[3] = { '\e', (/* t->curskeymode ? */ 'O' /* : '['*/) , keytable[keycode][0] };
+			twrite(t, keyseq, sizeof keyseq, 0);
+			break;
+		}
+		default:
+			twrite(t, keytable[keycode], strlen(keytable[keycode]), 0);
+		}
+	} else if (keycode <= UCHAR_MAX) {
+		char c = keycode;
+		twrite(t, &c, 1, 0);
+	} else {
+#ifndef NDEBUG
+		fprintf(stderr, "unhandled key %#o\n", keycode);
+#endif
+	}
+}
+
+//void vt_mouse(Vt *t, int x, int y, mmask_t mask)
+//{
+//#ifdef NCURSES_MOUSE_VERSION
+//	char seq[6] = { '\e', '[', 'M' }, state = 0, button = 0;
+//
+//	if (!t->mousetrack)
+//		return;
+//
+//	if (mask & (BUTTON1_PRESSED | BUTTON1_CLICKED))
+//		button = 0;
+//	else if (mask & (BUTTON2_PRESSED | BUTTON2_CLICKED))
+//		button = 1;
+//	else if (mask & (BUTTON3_PRESSED | BUTTON3_CLICKED))
+//		button = 2;
+//	else if (mask & (BUTTON1_RELEASED | BUTTON2_RELEASED | BUTTON3_RELEASED))
+//		button = 3;
+//
+//	if (mask & BUTTON_SHIFT)
+//		state |= 4;
+//	if (mask & BUTTON_ALT)
+//		state |= 8;
+//	if (mask & BUTTON_CTRL)
+//		state |= 16;
+//
+//	seq[3] = 32 + button + state;
+//	seq[4] = 32 + x;
+//	seq[5] = 32 + y;
+//
+//	twrite(t, seq, sizeof seq);
+//
+//	if (mask & (BUTTON1_CLICKED | BUTTON2_CLICKED | BUTTON3_CLICKED)) {
+//		/* send a button release event */
+//		button = 3;
+//		seq[3] = 32 + button + state;
+//		twrite(t, seq, sizeof seq);
+//	}
+//#endif /* NCURSES_MOUSE_VERSION */
+//}
 
 void
 sendbreak(Term *term, const Arg *arg)

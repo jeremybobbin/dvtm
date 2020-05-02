@@ -893,9 +893,9 @@ keypress(int code) {
 			if (code == '\e')
 				ttywrite(c->term, buf, len, 0);
 			else
-				vt_keypress(c->term, code);
+				tkeypress(c->term, code);
 			if (key != -1)
-				vt_keypress(c->term, key);
+				tkeypress(c->term, key);
 		}
 		if (!runinall)
 			break;
@@ -950,8 +950,8 @@ setup(void) {
 	keypad(stdscr, TRUE);
 	mouse_setup();
 	raw();
-	vt_init();
-	vt_keytable_set(keytable, LENGTH(keytable));
+	/* vt_init(); */
+	/* vt_keytable_set(keytable, LENGTH(keytable)); */
 	for (unsigned int i = 0; i < LENGTH(colors); i++) {
 		if (COLORS == 256) {
 			if (colors[i].fg256)
@@ -1327,10 +1327,12 @@ scrollback(const char *args[]) {
 	if (!is_content_visible(sel))
 		return;
 
+	/*
 	if (!args[0] || atoi(args[0]) < 0)
 		vt_scroll(sel->term, -sel->h/2);
 	else
 		vt_scroll(sel->term,  sel->h/2);
+		*/
 
 	draw(sel);
 	curs_set(1 /* vt_cursor_visible(sel->term) */ );
@@ -1649,7 +1651,7 @@ handle_mouse(void) {
 
 	debug("mouse x:%d y:%d cx:%d cy:%d mask:%d\n", event.x, event.y, event.x - msel->x, event.y - msel->y, event.bstate);
 
-	vt_mouse(msel->term, event.x - msel->x, event.y - msel->y, event.bstate);
+	/* vt_mouse(msel->term, event.x - msel->x, event.y - msel->y, event.bstate); */
 
 	for (i = 0; i < LENGTH(buttons); i++) {
 		if (event.bstate & buttons[i].mask)
