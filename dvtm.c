@@ -425,7 +425,7 @@ draw_border(Client *c) {
 
 static void
 draw_content(Client *c) {
-	vt_draw(c->term, c->window, c->has_title_line, 0);
+	tdraw(c->term, c->window, c->has_title_line, 0);
 }
 
 static void
