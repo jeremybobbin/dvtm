@@ -726,6 +726,21 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *
 	return term->cmdfd;
 }
 
+void
+tfree(Term *term)
+{
+	if (!term)
+		return;
+
+	for (int i = 0; i < term->row; i++) {
+		free(term->line[i]);
+		free(term->alt[i]);
+	}
+	close(term->cmdfd);
+	free(term);
+}
+
+
 size_t
 ttyread(Term *term)
 {

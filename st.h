@@ -249,6 +249,7 @@ void toggleprinter(Term *, const Arg *);
 int tattrset(Term *, int);
 Term* tnew(int, int, int);
 void tresize(Term *, int, int);
+void tfree(Term *);
 void tsetdirtattr(Term *, int);
 void tfulldirt(Term *);
 void ttyhangup(Term *);

@@ -995,7 +995,7 @@ destroy(Client *c) {
 		lastsel = NULL;
 	werase(c->window);
 	wnoutrefresh(c->window);
-	vt_destroy(c->term);
+	tfree(c->term);
 	delwin(c->window);
 	if (!clients && LENGTH(actions)) {
 		if (!strcmp(c->cmd, shell))
@@ -1011,7 +1011,7 @@ static void
 cleanup(void) {
 	while (clients)
 		destroy(clients);
-	vt_shutdown();
+	/* vt_shutdown(); */
 	endwin();
 	free(copyreg.data);
 	if (bar.fd > 0)
@@ -1709,7 +1709,7 @@ handle_editor(Client *c) {
 	}
 	c->editor_died = false;
 	c->editor_fds[1] = -1;
-	vt_destroy(c->editor);
+	tfree(c->editor);
 	c->editor = NULL;
 	c->term = c->app;
 	tfulldirt(c->term);
