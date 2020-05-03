@@ -30,33 +30,33 @@
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 
 /* taken from st/config.def.h */
-char *utmp = NULL;
-char *stty_args = "stty raw pass8 nl -echo -iexten -cstopb 38400";
+static char *utmp = NULL;
+static char *stty_args = "stty raw pass8 nl -echo -iexten -cstopb 38400";
 
 /* identification sequence returned in DA and DECID */
-char *vtiden = "\033[?6c";
+static char *vtiden = "\033[?6c";
 
 /* Kerning / character bounding-box multipliers */
 static float cwscale = 1.0;
 static float chscale = 1.0;
 
-unsigned int defaultfg = 7;
-unsigned int defaultbg = 0;
-unsigned int tabspaces = 8;
+static unsigned int defaultfg = 7;
+static unsigned int defaultbg = 0;
+static unsigned int tabspaces = 8;
 
 /*
  * word delimiter string
  *
  * More advanced example: L" `'\"()[]{}"
  */
-wchar_t *worddelimiters = L" ";
+static wchar_t *worddelimiters = L" ";
 
 /* selection timeouts (in milliseconds) */
 static unsigned int doubleclicktimeout = 300;
 static unsigned int tripleclicktimeout = 600;
 
 /* alt screens */
-int allowaltscreen = 1;
+static int allowaltscreen = 1;
 
 
 
@@ -274,15 +274,3 @@ size_t utf8encode(Rune, char *);
 void *xmalloc(size_t);
 void *xrealloc(void *, size_t);
 char *xstrdup(char *);
-
-/* config.h globals */
-extern char *utmp;
-/* extern char *scroll; */
-extern char *stty_args;
-extern char *vtiden;
-extern wchar_t *worddelimiters;
-extern int allowaltscreen;
-/* extern char *termname; */
-extern unsigned int tabspaces;
-extern unsigned int defaultfg;
-extern unsigned int defaultbg;
