@@ -2730,6 +2730,7 @@ tresize(Term *term, int col, int row)
 		tcursor(term, CURSOR_LOAD);
 	}
 	term->c = c;
+	ttyresize(term, col, row);
 }
 
 void
