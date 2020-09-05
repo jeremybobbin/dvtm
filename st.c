@@ -163,6 +163,95 @@ static const char *keytable[KEY_MAX+1] = {
 #endif
 };
 
+static bool is_utf8, has_default_colors;
+static short color_pairs_reserved, color_pairs_max, color_pair_current;
+static short *color2palette, deffg, defbg;
+
+static
+unsigned int color_hash(short fg, short bg)
+{
+	if (fg == -1)
+		fg = COLORS;
+	if (bg == -1)
+		bg = COLORS + 1;
+	return fg * (COLORS + 2) + bg;
+}
+
+short
+vt_color_get(Term *t, short fg, short bg)
+{
+	if (fg >= COLORS || fg < 0)
+		fg = deffg;
+	if (bg >= COLORS || bg < 0)
+		bg = defbg;
+
+	if (!color2palette)
+		return 0;
+	unsigned int index = color_hash(fg, bg);
+	if (color2palette[index] == 0) {
+		short oldfg, oldbg;
+		for (;;) {
+			if (++color_pair_current >= color_pairs_max)
+				color_pair_current = color_pairs_reserved + 1;
+			pair_content(color_pair_current, &oldfg, &oldbg);
+			unsigned int old_index = color_hash(oldfg, oldbg);
+			if (color2palette[old_index] >= 0) {
+				if (init_pair(color_pair_current, fg, bg) == OK) {
+					color2palette[old_index] = 0;
+					color2palette[index] = color_pair_current;
+				}
+				break;
+			}
+		}
+	}
+
+	short color_pair = color2palette[index];
+	return color_pair >= 0 ? color_pair : -color_pair;
+}
+
+short
+vt_color_reserve(short fg, short bg)
+{
+	if (!color2palette || fg >= COLORS || bg >= COLORS)
+		return 0;
+	if (fg == -1)
+		fg = deffg;
+	if (bg == -1)
+		bg = defbg;
+	if (fg == -1 && bg == -1)
+		return 0;
+	unsigned int index = color_hash(fg, bg);
+	if (color2palette[index] >= 0) {
+		if (init_pair(color_pairs_reserved + 1, fg, bg) == OK)
+			color2palette[index] = -(++color_pairs_reserved);
+	}
+	short color_pair = color2palette[index];
+	return color_pair >= 0 ? color_pair : -color_pair;
+}
+
+static void
+init_colors(void)
+{
+	pair_content(0, &defaultfg, &defaultbg);
+	if (defaultfg == -1)
+		defaultfg = COLOR_WHITE;
+	if (defaultbg == -1)
+		defaultbg = COLOR_BLACK;
+	has_default_colors = (use_default_colors() == OK);
+	color_pairs_max = MIN(COLOR_PAIRS, SHRT_MAX);
+	if (COLORS)
+		color2palette = calloc((COLORS + 2) * (COLORS + 2), sizeof(short));
+	/*
+	 * XXX: On undefined color-pairs NetBSD curses pair_content() set fg
+	 *      and bg to default colors while ncurses set them respectively to
+	 *      0 and 0. Initialize all color-pairs in order to have consistent
+	 *      behaviour despite the implementation used.
+	 */
+	for (short i = 1; i < color_pairs_max; i++)
+		init_pair(i, 0, 0);
+	vt_color_reserve(COLOR_WHITE, COLOR_BLACK);
+}
+
 ssize_t
 xwrite(int fd, const char *s, size_t len)
 {
@@ -1047,6 +1136,7 @@ tnew(int col, int row, int hist)
 {
 	Term *term;
 
+	init_colors();
 	term = xmalloc(sizeof(Term));
 	*term = (Term){ .c = { .attr = { .fg = defaultfg, .bg = defaultbg } } };
 	tresize(term, col, row);
@@ -1376,64 +1466,68 @@ tsetattr(Term *term, int *attr, int l)
 		switch (attr[i]) {
 		case 0:
 			term->c.attr.mode &= ~(
-				ATTR_BOLD       |
-				ATTR_FAINT      |
-				ATTR_ITALIC     |
-				ATTR_UNDERLINE  |
-				ATTR_BLINK      |
-				ATTR_REVERSE    |
-				ATTR_INVISIBLE  |
-				ATTR_STRUCK     );
+				A_BOLD       |
+				A_DIM      |
+				A_STANDOUT     |
+				A_UNDERLINE  |
+				A_BLINK      |
+				A_REVERSE    |
+				A_INVIS /* |
+				A_STRUCK*/     );
 			term->c.attr.fg = defaultfg;
 			term->c.attr.bg = defaultbg;
 			break;
 		case 1:
-			term->c.attr.mode |= ATTR_BOLD;
+			term->c.attr.mode |= A_BOLD;
 			break;
 		case 2:
-			term->c.attr.mode |= ATTR_FAINT;
+			term->c.attr.mode |= A_DIM;
 			break;
 		case 3:
-			term->c.attr.mode |= ATTR_ITALIC;
+			term->c.attr.mode |= A_STANDOUT;
 			break;
 		case 4:
-			term->c.attr.mode |= ATTR_UNDERLINE;
+			term->c.attr.mode |= A_UNDERLINE;
 			break;
 		case 5: /* slow blink */
 			/* FALLTHROUGH */
 		case 6: /* rapid blink */
-			term->c.attr.mode |= ATTR_BLINK;
+			term->c.attr.mode |= A_BLINK;
 			break;
 		case 7:
-			term->c.attr.mode |= ATTR_REVERSE;
+			term->c.attr.mode |= A_REVERSE;
 			break;
 		case 8:
-			term->c.attr.mode |= ATTR_INVISIBLE;
+			term->c.attr.mode |= A_INVIS;
 			break;
+		/*
 		case 9:
-			term->c.attr.mode |= ATTR_STRUCK;
+			term->c.attr.mode |= A_STRUCK;
 			break;
+		*/
 		case 22:
-			term->c.attr.mode &= ~(ATTR_BOLD | ATTR_FAINT);
+			term->c.attr.mode &= ~(A_BOLD | A_DIM);
 			break;
 		case 23:
-			term->c.attr.mode &= ~ATTR_ITALIC;
+			term->c.attr.mode &= ~A_STANDOUT;
 			break;
 		case 24:
-			term->c.attr.mode &= ~ATTR_UNDERLINE;
+			term->c.attr.mode &= ~A_UNDERLINE;
 			break;
 		case 25:
-			term->c.attr.mode &= ~ATTR_BLINK;
+			term->c.attr.mode &= ~A_BLINK;
 			break;
 		case 27:
-			term->c.attr.mode &= ~ATTR_REVERSE;
+			term->c.attr.mode &= ~A_REVERSE;
 			break;
 		case 28:
-			term->c.attr.mode &= ~ATTR_INVISIBLE;
+			term->c.attr.mode &= ~A_INVIS;
 			break;
+		/*
 		case 29:
-			term->c.attr.mode &= ~ATTR_STRUCK;
+			term->c.attr.mode &= ~A_STRUCK;
 			break;
+		*/
 		case 38:
 			if ((idx = tdefcolor(term, attr, &i, l)) >= 0)
 				term->c.attr.fg = idx;
@@ -2673,17 +2767,12 @@ tdraw(Term *t, WINDOW *win, int srow, int scol)
 			if (!prev_cell || cell->mode != prev_cell->mode
 			    || cell->fg != prev_cell->fg
 			    || cell->bg != prev_cell->bg) {
-				/* if (cell->mode == A_NORMAL)
-					cell->mode = t->defattrs; */
-				if (cell->mode == A_NORMAL)
-					cell->mode = 0;
 				if (cell->fg == -1)
 					cell->fg = defaultfg;
 				if (cell->bg == -1)
 					cell->bg = defaultbg;
 				wattrset(win, cell->mode << NCURSES_ATTR_SHIFT);
-				/* wcolor_set(win, vt_color_get(t, cell->fg, cell->bg), NULL); */
-				wcolor_set(win, 0, NULL);
+				wcolor_set(win, vt_color_get(t, cell->fg, cell->bg), NULL);
 			}
 
 			/* if (is_utf8 && cell->u >= 128) { */
