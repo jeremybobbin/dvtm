@@ -669,9 +669,9 @@ resize_client(Client *c, int w, int h) {
 	}
 	if (resize_window || c->has_title_line != has_title_line) {
 		c->has_title_line = has_title_line;
-		ttyresize(c->app, h - has_title_line, w);
+		tresize(c->app, w, h - has_title_line);
 		if (c->editor)
-			ttyresize(c->editor, h - has_title_line, w);
+			tresize(c->editor, w, h - has_title_line);
 	}
 }
 
@@ -1058,7 +1058,7 @@ create(const char *args[]) {
 		return;
 	}
 
-	c->term = c->app = tnew(screen.h, screen.w, screen.history);
+	c->term = c->app = tnew(screen.w, screen.h, screen.history);
 	if (!c->term) {
 		delwin(c->window);
 		free(c);

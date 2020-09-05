@@ -2764,7 +2764,7 @@ tdraw(Term *t, WINDOW *win, int srow, int scol)
 
 		row = t->line[i];
 		wmove(win, srow + i, scol);
-		for (j = 0, cell = row, prev_cell = NULL; j < t->col; prev_cell = cell, cell = row + j++) {
+		for (j = 0, cell = row, prev_cell = NULL; j < t->col; j++, prev_cell = cell, cell = row + j) {
 			if (!prev_cell || cell->mode != prev_cell->mode
 			    || cell->fg != prev_cell->fg
 			    || cell->bg != prev_cell->bg) {
