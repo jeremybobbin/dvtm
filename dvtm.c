@@ -893,7 +893,7 @@ keypress(int code) {
 			if (code == '\e')
 				ttywrite(c->term, buf, len, 0);
 			else
-				tkeypress(c->term, buf, len, 0);
+				tkeypress(c->term, code);
 			if (key != -1)
 				tkeypress(c->term, key);
 		}
