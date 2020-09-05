@@ -2771,7 +2771,7 @@ tdraw(Term *t, WINDOW *win, int srow, int scol)
 					cell->fg = defaultfg;
 				if (cell->bg == -1)
 					cell->bg = defaultbg;
-				wattrset(win, cell->mode << NCURSES_ATTR_SHIFT);
+				wattrset(win, cell->mode);
 				wcolor_set(win, vt_color_get(t, cell->fg, cell->bg), NULL);
 			}
 

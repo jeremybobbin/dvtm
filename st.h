@@ -155,7 +155,7 @@ typedef union {
 #define Glyph Glyph_
 typedef struct {
 	Rune u;           /* character code */
-	ushort mode;      /* attribute flags */
+	attr_t mode;      /* attribute flags */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */
 } Glyph;
