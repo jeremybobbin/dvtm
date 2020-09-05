@@ -1990,15 +1990,15 @@ void tkeypress(Term *t, int keycode)
 		case KEY_RIGHT:
 		case KEY_LEFT: {
 			char keyseq[3] = { '\e', (/* t->curskeymode ? */ 'O' /* : '['*/) , keytable[keycode][0] };
-			twrite(t, keyseq, sizeof keyseq, 0);
+			ttywrite(t, keyseq, sizeof keyseq, 0);
 			break;
 		}
 		default:
-			twrite(t, keytable[keycode], strlen(keytable[keycode]), 0);
+			ttywrite(t, keytable[keycode], strlen(keytable[keycode]), 0);
 		}
 	} else if (keycode <= UCHAR_MAX) {
 		char c = keycode;
-		twrite(t, &c, 1, 0);
+		ttywrite(t, &c, 1, 0);
 	} else {
 #ifndef NDEBUG
 		fprintf(stderr, "unhandled key %#o\n", keycode);
