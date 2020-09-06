@@ -1919,7 +1919,7 @@ main(int argc, char *argv[]) {
 
 		for (Client *c = clients; c; c = c->next) {
 			if (FD_ISSET(tpty(c->term), &rd)) {
-				if (ttyread(c->term) < 0 && errno == EIO) {
+				if ((r = ttyread(c->term)) < 0 && errno == EIO) {
 					if (c->editor)
 						c->editor_died = true;
 					else
