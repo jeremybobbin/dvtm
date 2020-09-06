@@ -165,7 +165,9 @@ static const char *keytable[KEY_MAX+1] = {
 
 static bool is_utf8, has_default_colors;
 static short color_pairs_reserved, color_pairs_max, color_pair_current;
-static short *color2palette, deffg, defbg;
+static short *color2palette;
+short defaultfg = COLOR_WHITE;
+short defaultbg = COLOR_BLACK;
 
 static
 unsigned int color_hash(short fg, short bg)
@@ -181,9 +183,9 @@ short
 vt_color_get(Term *t, short fg, short bg)
 {
 	if (fg >= COLORS || fg < 0)
-		fg = deffg;
+		fg = defaultfg;
 	if (bg >= COLORS || bg < 0)
-		bg = defbg;
+		bg = defaultbg;
 
 	if (!color2palette)
 		return 0;
@@ -215,9 +217,9 @@ vt_color_reserve(short fg, short bg)
 	if (!color2palette || fg >= COLORS || bg >= COLORS)
 		return 0;
 	if (fg == -1)
-		fg = deffg;
+		fg = defaultfg;
 	if (bg == -1)
-		bg = defbg;
+		bg = defaultbg;
 	if (fg == -1 && bg == -1)
 		return 0;
 	unsigned int index = color_hash(fg, bg);
@@ -233,10 +235,6 @@ static void
 init_colors(void)
 {
 	pair_content(0, &defaultfg, &defaultbg);
-	if (defaultfg == -1)
-		defaultfg = COLOR_WHITE;
-	if (defaultbg == -1)
-		defaultbg = COLOR_BLACK;
 	has_default_colors = (use_default_colors() == OK);
 	color_pairs_max = MIN(COLOR_PAIRS, SHRT_MAX);
 	if (COLORS)
@@ -721,7 +719,7 @@ execsh(char *cmd, char **args)
 	setenv("USER", pw->pw_name, 1);
 	setenv("SHELL", sh, 1);
 	setenv("HOME", pw->pw_dir, 1);
-	/* setenv("TERM", termname, 1); */
+	/* setenv("TERM", "termname", 1); */
 
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGHUP, SIG_DFL);

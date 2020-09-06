@@ -40,8 +40,6 @@ static char *vtiden = "\033[?6c";
 static float cwscale = 1.0;
 static float chscale = 1.0;
 
-static unsigned int defaultfg = 7;
-static unsigned int defaultbg = 0;
 static unsigned int tabspaces = 8;
 
 /*
