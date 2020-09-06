@@ -1105,10 +1105,9 @@ copymode(const char *args[]) {
 	if (!args || !args[0] || !sel || sel->editor)
 		return;
 
-	/* 
 	bool colored = strstr(args[0], "pager") != NULL;
 
-	if (!(sel->editor = tnew(sel->h - sel->has_title_line, sel->w, 0)))
+	if (!(sel->editor = tnew(sel->w, sel->h - sel->has_title_line, 0)))
 		return;
 
 	int *to = &sel->editor_fds[0];
@@ -1117,12 +1116,14 @@ copymode(const char *args[]) {
 
 	const char *argv[3] = { args[0], NULL, NULL };
 	char argline[32];
+	/*
 	int line = vt_content_start(sel->app);
 	snprintf(argline, sizeof(argline), "+%d", line);
 	argv[1] = argline;
+	*/
 
 	if (ttynew(sel->editor, NULL, args[0], NULL, argv, to, from) < 0) {
-		vt_destroy(sel->editor);
+		tfree(sel->editor);
 		sel->editor = NULL;
 		return;
 	}
@@ -1131,7 +1132,7 @@ copymode(const char *args[]) {
 
 	if (sel->editor_fds[0] != -1) {
 		char *buf = NULL;
-		size_t len = vt_content_get(sel->app, &buf, colored);
+		size_t len = tgetcontent(sel->app, &buf, colored);
 		char *cur = buf;
 		while (len > 0) {
 			ssize_t res = write(sel->editor_fds[0], cur, len);
@@ -1150,7 +1151,6 @@ copymode(const char *args[]) {
 
 	if (args[1])
 		ttywrite(sel->editor, args[1], strlen(args[1]), 0);
-		*/
 }
 
 static void

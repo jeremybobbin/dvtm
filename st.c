@@ -231,6 +231,80 @@ vt_color_reserve(short fg, short bg)
 	return color_pair >= 0 ? color_pair : -color_pair;
 }
 
+size_t tgetcontent(Term *t, char **buf, bool colored)
+{
+	Glyph *row, *cell, *prev;
+	int i, j, lines = 20;
+	size_t size = lines * ((t->col + 1) * ((colored ? 64 : 0) + MB_CUR_MAX));
+	mbstate_t ps;
+	memset(&ps, 0, sizeof(ps));
+
+	if (!(*buf = malloc(size)))
+		return 0;
+
+	char *s = *buf;
+
+	for (i = 0; i < t->row; i++) {
+		row = t->line[i];
+
+		size_t len = 0;
+		char *last_non_space = s;
+		for (j = 0; j < t->col; j++) {
+			cell = &row[j];
+			/*
+			if (colored) {
+				int esclen = 0;
+				if (!prev_cell || cell->attr != prev_cell->attr) {
+					attr_t attr = cell->attr << NCURSES_ATTR_SHIFT;
+					esclen = sprintf(s, "\033[0%s%s%s%s%s%sm",
+						attr & A_BOLD ? ";1" : "",
+						attr & A_DIM ? ";2" : "",
+						attr & A_UNDERLINE ? ";4" : "",
+						attr & A_BLINK ? ";5" : "",
+						attr & A_REVERSE ? ";7" : "",
+						attr & A_INVIS ? ";8" : "");
+					if (esclen > 0)
+						s += esclen;
+				}
+				if (!prev_cell || cell->fg != prev_cell->fg || cell->attr != prev_cell->attr) {
+					if (cell->fg == -1)
+						esclen = sprintf(s, "\033[39m");
+					else
+						esclen = sprintf(s, "\033[38;5;%dm", cell->fg);
+					if (esclen > 0)
+						s += esclen;
+				}
+				if (!prev_cell || cell->bg != prev_cell->bg || cell->attr != prev_cell->attr) {
+					if (cell->bg == -1)
+						esclen = sprintf(s, "\033[49m");
+					else
+						esclen = sprintf(s, "\033[48;5;%dm", cell->bg);
+					if (esclen > 0)
+						s += esclen;
+				}
+				prev_cell = cell;
+			}
+			*/
+			if (cell->u) {
+				len = wcrtomb(s, cell->u, &ps);
+				if (len > 0)
+					s += len;
+				last_non_space = s;
+			} else if (len) {
+				len = 0;
+			} else {
+				*s++ = ' ';
+			}
+		}
+
+		s = last_non_space;
+		*s++ = '\n';
+	}
+
+	return s - *buf;
+}
+
+
 static void
 init_colors(void)
 {
@@ -1289,7 +1363,7 @@ tclearregion(Term *term, int x1, int y1, int x2, int y2)
 			gp->fg = term->c.attr.fg;
 			gp->bg = term->c.attr.bg;
 			gp->mode = 0;
-			gp->u = ' ';
+			gp->u = L'\0';
 		}
 	}
 }
