@@ -680,58 +680,6 @@ die(const char *errstr, ...)
 	exit(1);
 }
 
-void
-execsh(char *cmd, char **args)
-{
-	char *sh, *prog, *arg;
-	const struct passwd *pw;
-
-	errno = 0;
-	if ((pw = getpwuid(getuid())) == NULL) {
-		if (errno)
-			die("getpwuid: %s\n", strerror(errno));
-		else
-			die("who are you?\n");
-	}
-
-	if ((sh = getenv("SHELL")) == NULL)
-		sh = (pw->pw_shell[0]) ? pw->pw_shell : cmd;
-
-	if (args) {
-		prog = args[0];
-		arg = NULL;
-	} /* else if (scroll) {
-		prog = scroll;
-		arg = utmp ? utmp : sh;
-	} */ else if (utmp) {
-		prog = utmp;
-		arg = NULL;
-	} else {
-		prog = sh;
-		arg = NULL;
-	}
-	DEFAULT(args, ((char *[]) {prog, arg, NULL}));
-
-	unsetenv("COLUMNS");
-	unsetenv("LINES");
-	unsetenv("TERMCAP");
-	setenv("LOGNAME", pw->pw_name, 1);
-	setenv("USER", pw->pw_name, 1);
-	setenv("SHELL", sh, 1);
-	setenv("HOME", pw->pw_dir, 1);
-	/* setenv("TERM", "termname", 1); */
-
-	signal(SIGCHLD, SIG_DFL);
-	signal(SIGHUP, SIG_DFL);
-	signal(SIGINT, SIG_DFL);
-	signal(SIGQUIT, SIG_DFL);
-	signal(SIGTERM, SIG_DFL);
-	signal(SIGALRM, SIG_DFL);
-
-	execvp(prog, args);
-	_exit(1);
-}
-
 /* void
 sigchld(int a)
 {
@@ -854,6 +802,11 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *
 		if (pledge("stdio getpw proc exec", NULL) == -1)
 			die("pledge\n");
 #endif
+		unsetenv("COLUMNS");
+		unsetenv("LINES");
+		unsetenv("TERMCAP");
+		setenv("TERM", "st-256color", 1);
+
 		execvp(cmd, args);
 		break;
 
