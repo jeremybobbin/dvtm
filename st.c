@@ -798,25 +798,12 @@ ttynew(Term *term, char *line, char *cmd, char *out, char **args, int *to, int *
 
 		/* close(slave); */
 		/* close(term->cmdfd); */
-#ifdef __OpenBSD__
-		if (pledge("stdio getpw proc exec", NULL) == -1)
-			die("pledge\n");
-#endif
 		unsetenv("COLUMNS");
 		unsetenv("LINES");
 		unsetenv("TERMCAP");
 		setenv("TERM", "st-256color", 1);
 
 		execvp(cmd, args);
-		break;
-
-	default:
-#ifdef __OpenBSD__
-		if (pledge("stdio rpath tty proc", NULL) == -1)
-			die("pledge\n");
-#endif
-		//close(slave);
-		/* signal(SIGCHLD, sigchld); */
 		break;
 	}
 
@@ -859,10 +846,8 @@ ttyread(Term *term)
 	ret = read(term->cmdfd, buf+buflen, LEN(buf)-buflen);
 
 	switch (ret) {
-	case 0:
-		exit(0);
-	case -1:
-		die("couldn't read from shell: %s\n", strerror(errno));
+	case 0: case -1:
+		return ret;
 	default:
 		buflen += ret;
 		written = twrite(term, buf, buflen, 0);
