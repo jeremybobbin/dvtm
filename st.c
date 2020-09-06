@@ -1110,8 +1110,8 @@ treset(Term *term)
 
 	term->c = (TCursor){{
 		.mode = ATTR_NULL,
-		.fg = defaultfg,
-		.bg = defaultbg
+		.fg = COLOR_WHITE,
+		.bg = COLOR_BLACK
 	}, .x = 0, .y = 0, .state = CURSOR_DEFAULT};
 
 	memset(term->tabs, 0, term->col * sizeof(*term->tabs));
@@ -1138,7 +1138,7 @@ tnew(int col, int row, int hist)
 
 	init_colors();
 	term = xmalloc(sizeof(Term));
-	*term = (Term){ .c = { .attr = { .fg = defaultfg, .bg = defaultbg } } };
+	*term = (Term){ .c = { .attr = { .fg = COLOR_WHITE, .bg = COLOR_BLACK } } };
 	tresize(term, col, row);
 	treset(term);
 	return term;
@@ -1474,8 +1474,8 @@ tsetattr(Term *term, int *attr, int l)
 				A_REVERSE    |
 				A_INVIS /* |
 				A_STRUCK*/     );
-			term->c.attr.fg = defaultfg;
-			term->c.attr.bg = defaultbg;
+			term->c.attr.fg = COLOR_WHITE;
+			term->c.attr.bg = COLOR_BLACK;
 			break;
 		case 1:
 			term->c.attr.mode |= A_BOLD;
@@ -1533,14 +1533,14 @@ tsetattr(Term *term, int *attr, int l)
 				term->c.attr.fg = idx;
 			break;
 		case 39:
-			term->c.attr.fg = defaultfg;
+			term->c.attr.fg = COLOR_WHITE;
 			break;
 		case 48:
 			if ((idx = tdefcolor(term, attr, &i, l)) >= 0)
 				term->c.attr.bg = idx;
 			break;
 		case 49:
-			term->c.attr.bg = defaultbg;
+			term->c.attr.bg = COLOR_BLACK;
 			break;
 		default:
 			if (BETWEEN(attr[i], 30, 37)) {
@@ -2769,9 +2769,9 @@ tdraw(Term *t, WINDOW *win, int srow, int scol)
 			    || cell->fg != prev_cell->fg
 			    || cell->bg != prev_cell->bg) {
 				if (cell->fg == -1)
-					cell->fg = defaultfg;
+					cell->fg = COLOR_WHITE;
 				if (cell->bg == -1)
-					cell->bg = defaultbg;
+					cell->bg = COLOR_BLACK;
 				wattrset(win, cell->mode);
 				wcolor_set(win, vt_color_get(t, cell->fg, cell->bg), NULL);
 			}
