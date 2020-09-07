@@ -1039,12 +1039,6 @@ ttyhangup(Term *term)
 	kill(term->pid, SIGHUP);
 }
 
-void **
-ttydata(Term *term)
-{
-	return &term->data;
-}
-
 int
 tpty(Term *term)
 {
@@ -1148,7 +1142,16 @@ tnew(int col, int row, int hist)
 
 	init_colors();
 	term = xmalloc(sizeof(Term));
-	*term = (Term){ .c = { .attr = { .fg = COLOR_WHITE, .bg = COLOR_BLACK } } };
+	*term = (Term){
+		.c = {
+			.attr = {
+				.fg = COLOR_WHITE,
+				.bg = COLOR_BLACK
+			}
+		},
+		.titlehandler = NULL,
+		.urgenthandler = NULL,
+	};
 	tresize(term, col, row);
 	treset(term);
 	return term;
@@ -1973,7 +1976,8 @@ strhandle(Term *term)
 		case 1:
 		case 2:
 			if (narg > 1)
-				/* xsettitle(term->strescseq.args[1]); */
+				if (term->titlehandler)
+					term->titlehandler(term->pid, term->strescseq.args[1]);
 			return;
 		case 52:
 			if (narg > 2) {
@@ -2012,7 +2016,8 @@ strhandle(Term *term)
 		}
 		break;
 	case 'k': /* old title set compatibility */
-		/*xsettitle(term->strescseq.args[0]);*/
+		if (term->titlehandler)
+			term->titlehandler(term->pid, term->strescseq.args[0]);
 		return;
 	case 'P': /* DCS -- Device Control String */
 		term->mode |= ESC_DCS;
@@ -2320,7 +2325,8 @@ tcontrolcode(Term *term, uchar ascii)
 			/* backwards compatibility to xterm */
 			strhandle(term);
 		} else {
-			/*xbell();*/
+			if (term->urgenthandler)
+				term->urgenthandler(term->pid);
 		}
 		break;
 	case '\033': /* ESC */
@@ -2760,6 +2766,16 @@ drawregion(Term *term, int x1, int y1, int x2, int y2)
 		term->dirty[y] = 0;
 		/*xdrawline(term->line[y], x1, y, x2);*/
 	}
+}
+
+void tsettitlehandler(Term *term, void(*fn)(pid_t, char *))
+{
+	term->titlehandler = fn;
+}
+
+void tseturgenthandler(Term *term, void(*fn)(pid_t))
+{
+	term->urgenthandler = fn;
 }
 
 void

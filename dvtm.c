@@ -291,6 +291,14 @@ nextvisible(Client *c) {
 	return c;
 }
 
+static Client*
+bypid(pid_t pid) {
+	for (Client *c = clients; c; c = c->next)
+		if (c->pid == pid)
+			return c;
+	return NULL;
+}
+
 static void
 updatebarpos(void) {
 	bar.y = 0;
@@ -619,8 +627,8 @@ applycolorrules(Client *c) {
 }
 
 static void
-term_title_handler(Term *term, const char *title) {
-	Client *c = (Client *)*ttydata(term);
+term_title_handler(pid_t pid, const char *title) {
+	Client *c = bypid(pid);
 	if (title)
 		strncpy(c->title, title, sizeof(c->title) - 1);
 	c->title[title ? sizeof(c->title) - 1 : 0] = '\0';
@@ -631,8 +639,8 @@ term_title_handler(Term *term, const char *title) {
 }
 
 static void
-term_urgent_handler(Term *term) {
-	Client *c = (Client *)*ttydata(term);
+term_urgent_handler(pid_t pid) {
+	Client *c = bypid(pid);
 	c->urgent = true;
 	printf("\a");
 	fflush(stdout);
@@ -1086,11 +1094,8 @@ create(const char *args[]) {
 	c->pid = ttynew(c->term, NULL, shell, NULL, pargs, NULL, NULL);
 	if (args && args[2] && !strcmp(args[2], "$CWD"))
 		free(cwd);
-	*ttydata(c->term) = (void *) c;
-	/* 
-	vt_title_handler_set(c->term, term_title_handler);
-	vt_urgent_handler_set(c->term, term_urgent_handler);
-	*/
+	tsettitlehandler(c->term, term_title_handler);
+	tseturgenthandler(c->term, term_urgent_handler);
 	applycolorrules(c);
 	c->x = wax;
 	c->y = way;

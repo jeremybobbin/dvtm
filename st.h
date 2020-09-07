@@ -233,6 +233,8 @@ typedef struct {
 	int cmdfd; /* psuedo-terminal file descriptor */
 	pid_t pid;
 	void *data;
+	void(*titlehandler)(pid_t, char *);
+	void(*urgenthandler)(pid_t);
 } Term;
 
 void die(const char *, ...);
@@ -257,6 +259,8 @@ void ttyresize(Term *, int, int);
 void ttywrite(Term *, const char *, size_t, int);
 void **ttydata(Term *);
 int tpty(Term *);
+void tsettitlehandler(Term *, void(*fn)(pid_t, char *));
+void tseturgenthandler(Term *, void(*fn)(pid_t));
 
 void resettitle(void);
 
