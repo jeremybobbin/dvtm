@@ -669,9 +669,9 @@ resize_client(Client *c, int w, int h) {
 	}
 	if (resize_window || c->has_title_line != has_title_line) {
 		c->has_title_line = has_title_line;
-		tresize(c->app, w, h - has_title_line);
+		ttyresize(c->app, w, h - has_title_line);
 		if (c->editor)
-			tresize(c->editor, w, h - has_title_line);
+			ttyresize(c->editor, w, h - has_title_line);
 	}
 }
 
