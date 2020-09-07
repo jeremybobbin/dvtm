@@ -233,7 +233,7 @@ vt_color_reserve(short fg, short bg)
 
 size_t tgetcontent(Term *t, char **buf, bool colored)
 {
-	Glyph *row, *cell, *prev;
+	Glyph *row, *cell, *prev_cell = NULL;
 	int i, j, lines = 20;
 	size_t size = lines * ((t->col + 1) * ((colored ? 64 : 0) + MB_CUR_MAX));
 	mbstate_t ps;
@@ -250,12 +250,12 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 		size_t len = 0;
 		char *last_non_space = s;
 		for (j = 0; j < t->col; j++) {
+			prev_cell = cell;
 			cell = &row[j];
-			/*
 			if (colored) {
 				int esclen = 0;
-				if (!prev_cell || cell->attr != prev_cell->attr) {
-					attr_t attr = cell->attr << NCURSES_ATTR_SHIFT;
+				if (!prev_cell || cell->mode != prev_cell->mode) {
+					attr_t attr = cell->mode;
 					esclen = sprintf(s, "\033[0%s%s%s%s%s%sm",
 						attr & A_BOLD ? ";1" : "",
 						attr & A_DIM ? ";2" : "",
@@ -266,7 +266,7 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 					if (esclen > 0)
 						s += esclen;
 				}
-				if (!prev_cell || cell->fg != prev_cell->fg || cell->attr != prev_cell->attr) {
+				if (!prev_cell || cell->fg != prev_cell->fg || cell->mode != prev_cell->mode) {
 					if (cell->fg == -1)
 						esclen = sprintf(s, "\033[39m");
 					else
@@ -274,7 +274,7 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 					if (esclen > 0)
 						s += esclen;
 				}
-				if (!prev_cell || cell->bg != prev_cell->bg || cell->attr != prev_cell->attr) {
+				if (!prev_cell || cell->bg != prev_cell->bg || cell->mode != prev_cell->mode) {
 					if (cell->bg == -1)
 						esclen = sprintf(s, "\033[49m");
 					else
@@ -284,7 +284,6 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 				}
 				prev_cell = cell;
 			}
-			*/
 			if (cell->u) {
 				len = wcrtomb(s, cell->u, &ps);
 				if (len > 0)
