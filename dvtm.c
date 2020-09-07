@@ -959,7 +959,7 @@ setup(void) {
 			if (colors[i].bg256)
 				colors[i].bg = colors[i].bg256;
 		}
-		colors[i].pair = 0 /* vt_color_reserve(colors[i].fg, colors[i].bg) */;
+		colors[i].pair = vt_color_reserve(colors[i].fg, colors[i].bg) ;
 	}
 	resize_screen();
 	struct sigaction sa;
