@@ -1024,6 +1024,7 @@ ttyresize(Term *term, int tw, int th)
 {
 	struct winsize w;
 
+	tresize(term, tw, th);
 	w.ws_row = term->row;
 	w.ws_col = term->col;
 	w.ws_xpixel = tw;
@@ -2740,7 +2741,6 @@ tresize(Term *term, int col, int row)
 		tcursor(term, CURSOR_LOAD);
 	}
 	term->c = c;
-	ttyresize(term, col, row);
 }
 
 void
