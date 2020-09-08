@@ -34,6 +34,8 @@
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)		(u && wcschr(worddelimiters, u))
 #define NCURSES_ATTR_SHIFT 8
+#define RING_IDX(term, i) (term->buf[((term->line - term->buf) + i) % term->maxrow])
+#define RING_IDX_ALT(term, i) (term->altbuf[((term->alt - term->altbuf) + i) % term->maxrow])
 
 
 static void execsh(char *, char **);
@@ -245,7 +247,7 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 	char *s = *buf;
 
 	for (i = 0; i < t->row; i++) {
-		row = t->line[i];
+		row = RING_IDX(t, i);
 
 		size_t len = 0;
 		char *last_non_space = s;
@@ -346,6 +348,17 @@ xmalloc(size_t len)
 	void *p;
 
 	if (!(p = malloc(len)))
+		die("malloc: %s\n", strerror(errno));
+
+	return p;
+}
+
+void *
+xcalloc(size_t n, size_t len)
+{
+	void *p;
+
+	if (!(p = calloc(n, len)))
 		die("malloc: %s\n", strerror(errno));
 
 	return p;
@@ -506,10 +519,10 @@ tlinelen(Term *term, int y)
 {
 	int i = term->col;
 
-	if (((Glyph)term->line[y][i - 1]).mode & ATTR_WRAP)
+	if (((Glyph)RING_IDX(term, y)[i - 1]).mode & ATTR_WRAP)
 		return i;
 
-	while (i > 0 && term->line[y][i - 1].u == ' ')
+	while (i > 0 && RING_IDX(term, y)[i - 1].u == ' ')
 		--i;
 
 	return i;
@@ -618,7 +631,7 @@ selsnap(Term *term, int *x, int *y, int direction)
 		 * Snap around if the word wraps around at the end or
 		 * beginning of a line.
 		 */
-		prevgp = &term->line[*y][*x];
+		prevgp = &RING_IDX(term, *y)[*x];
 		prevdelim = ISDELIM(prevgp->u);
 		for (;;) {
 			newx = *x + direction;
@@ -633,14 +646,14 @@ selsnap(Term *term, int *x, int *y, int direction)
 					yt = *y, xt = *x;
 				else
 					yt = newy, xt = newx;
-				if (!(((Glyph)term->line[yt][xt]).mode & ATTR_WRAP))
+				if (!(((Glyph)RING_IDX(term, yt)[xt]).mode & ATTR_WRAP))
 					break;
 			}
 
 			if (newx >= tlinelen(term, newy))
 				break;
 
-			gp = &term->line[newy][newx];
+			gp = &RING_IDX(term, newy)[newx];
 			delim = ISDELIM(gp->u);
 			if (!(gp->mode & ATTR_WDUMMY) && (delim != prevdelim
 					|| (delim && gp->u != prevgp->u)))
@@ -661,14 +674,14 @@ selsnap(Term *term, int *x, int *y, int direction)
 		*x = (direction < 0) ? 0 : term->col - 1;
 		if (direction < 0) {
 			for (; *y > 0; *y += direction) {
-				if (!(((Glyph)term->line[*y-1][term->col-1]).mode
+				if (!(((Glyph)RING_IDX(term, *y-1)[term->col-1]).mode
 						& ATTR_WRAP)) {
 					break;
 				}
 			}
 		} else if (direction > 0) {
 			for (; *y < term->row-1; *y += direction) {
-				if (!(((Glyph)term->line[*y][term->col-1]).mode
+				if (!(((Glyph)RING_IDX(term, *y)[term->col-1]).mode
 						& ATTR_WRAP)) {
 					break;
 				}
@@ -699,13 +712,13 @@ getsel(Term *term)
 		}
 
 		if (term->sel.type == SEL_RECTANGULAR) {
-			gp = &term->line[y][term->sel.nb.x];
+			gp = &RING_IDX(term, y)[term->sel.nb.x];
 			lastx = term->sel.ne.x;
 		} else {
-			gp = &term->line[y][term->sel.nb.y == y ? term->sel.nb.x : 0];
+			gp = &RING_IDX(term, y)[term->sel.nb.y == y ? term->sel.nb.x : 0];
 			lastx = (term->sel.ne.y == y) ? term->sel.ne.x : term->col-1;
 		}
-		last = &term->line[y][MIN(lastx, linelen-1)];
+		last = &RING_IDX(term, y)[MIN(lastx, linelen-1)];
 		while (last >= gp && last->u == ' ')
 			--last;
 
@@ -900,8 +913,8 @@ tfree(Term *term)
 		return;
 
 	for (int i = 0; i < term->row; i++) {
-		free(term->line[i]);
-		free(term->alt[i]);
+		free(RING_IDX(term, i));
+		free(RING_IDX_ALT(term, i));
 	}
 	close(term->cmdfd);
 	free(term);
@@ -1052,7 +1065,7 @@ tattrset(Term *term, int attr)
 
 	for (i = 0; i < term->row-1; i++) {
 		for (j = 0; j < term->col-1; j++) {
-			if (((Glyph)term->line[i][j]).mode & attr)
+			if (((Glyph)RING_IDX(term, i)[j]).mode & attr)
 				return 1;
 		}
 	}
@@ -1079,7 +1092,7 @@ tsetdirtattr(Term *term, int attr)
 
 	for (i = 0; i < term->row-1; i++) {
 		for (j = 0; j < term->col-1; j++) {
-			if (((Glyph)term->line[i][j]).mode & attr) {
+			if (((Glyph)RING_IDX(term, i)[j]).mode & attr) {
 				tsetdirt(term, i, i);
 				break;
 			}
@@ -1142,6 +1155,7 @@ tnew(int col, int row, int hist)
 
 	init_colors();
 	term = xmalloc(sizeof(Term));
+	hist = MAX(hist, row);
 	*term = (Term){
 		.c = {
 			.attr = {
@@ -1151,7 +1165,16 @@ tnew(int col, int row, int hist)
 		},
 		.titlehandler = NULL,
 		.urgenthandler = NULL,
+		/* rows should be constant
+		 * columns will be handled by resize function
+		 */
+		.buf = xcalloc(hist, sizeof(Term)),
+		.altbuf = xcalloc(hist, sizeof(Term)),
+		.maxcol = 0,
+		.maxrow = hist,
 	};
+	term->line = term->buf;
+	term->alt = term->altbuf;
 	tresize(term, col, row);
 	treset(term);
 	return term;
@@ -1164,6 +1187,11 @@ tswapscreen(Term *term)
 
 	term->line = term->alt;
 	term->alt = tmp;
+
+	tmp = term->buf;
+	term->buf = term->altbuf;
+	term->altbuf = tmp;
+
 	term->mode ^= MODE_ALTSCREEN;
 	tfulldirt(term);
 }
@@ -1180,8 +1208,8 @@ tscrolldown(Term *term, int orig, int n)
 	tclearregion(term, 0, term->bot-n+1, term->col-1, term->bot);
 
 	for (i = term->bot; i >= orig+n; i--) {
-		temp = term->line[i];
-		term->line[i] = term->line[i-n];
+		temp = RING_IDX(term, i);
+		RING_IDX(term, i) = term->line[i-n];
 		term->line[i-n] = temp;
 	}
 
@@ -1200,8 +1228,8 @@ tscrollup(Term *term, int orig, int n)
 	tsetdirt(term, orig+n, term->bot);
 
 	for (i = orig; i <= term->bot-n; i++) {
-		temp = term->line[i];
-		term->line[i] = term->line[i+n];
+		temp = RING_IDX(term, i);
+		RING_IDX(term, i) = term->line[i+n];
 		term->line[i+n] = temp;
 	}
 
@@ -1326,19 +1354,19 @@ tsetchar(Term *term, Rune u, Glyph *attr, int x, int y)
 	   BETWEEN(u, 0x41, 0x7e) && vt100_0[u - 0x41])
 		utf8decode(vt100_0[u - 0x41], &u, UTF_SIZ);
 
-	if (((Glyph)term->line[y][x]).mode & ATTR_WIDE) {
+	if (((Glyph)RING_IDX(term, y)[x]).mode & ATTR_WIDE) {
 		if (x+1 < term->col) {
-			term->line[y][x+1].u = ' ';
-			term->line[y][x+1].mode &= ~ATTR_WDUMMY;
+			RING_IDX(term, y)[x+1].u = ' ';
+			RING_IDX(term, y)[x+1].mode &= ~ATTR_WDUMMY;
 		}
-	} else if (((Glyph)term->line[y][x]).mode & ATTR_WDUMMY) {
-		term->line[y][x-1].u = ' ';
-		term->line[y][x-1].mode &= ~ATTR_WIDE;
+	} else if (((Glyph)RING_IDX(term, y)[x]).mode & ATTR_WDUMMY) {
+		RING_IDX(term, y)[x-1].u = ' ';
+		RING_IDX(term, y)[x-1].mode &= ~ATTR_WIDE;
 	}
 
 	term->dirty[y] = 1;
-	term->line[y][x] = *attr;
-	term->line[y][x].u = u;
+	RING_IDX(term, y)[x] = *attr;
+	RING_IDX(term, y)[x].u = u;
 }
 
 void
@@ -1360,7 +1388,7 @@ tclearregion(Term *term, int x1, int y1, int x2, int y2)
 	for (y = y1; y <= y2; y++) {
 		term->dirty[y] = 1;
 		for (x = x1; x <= x2; x++) {
-			gp = &term->line[y][x];
+			gp = &RING_IDX(term, y)[x];
 			if (selected(term, x, y))
 				selclear(term);
 			gp->fg = term->c.attr.fg;
@@ -2206,7 +2234,7 @@ tdumpline(Term *term, int n)
 	char buf[UTF_SIZ];
 	Glyph *bp, *end;
 
-	bp = &term->line[n][0];
+	bp = &RING_IDX(term, n)[0];
 	end = &bp[MIN(tlinelen(term, n), term->col) - 1];
 	if (bp != end || bp->u != ' ') {
 		for ( ;bp <= end; ++bp)
@@ -2673,7 +2701,10 @@ tresize(Term *term, int col, int row)
 	int minrow = MIN(row, term->row);
 	int mincol = MIN(col, term->col);
 	int *bp;
+	/* offsets into views */
 	TCursor c;
+
+	term->maxcol = MAX(col, term->maxcol);
 
 	if (col < 1 || row < 1) {
 		fprintf(stderr,
@@ -2687,36 +2718,25 @@ tresize(Term *term, int col, int row)
 	 * memmove because we're freeing the earlier lines
 	 */
 	for (i = 0; i <= term->c.y - row; i++) {
-		free(term->line[i]);
-		free(term->alt[i]);
+		free(RING_IDX(term, i));
+		free(RING_IDX_ALT(term, i));
 	}
 	/* ensure that both src and dst are not NULL */
 	if (i > 0) {
-		memmove(term->line, term->line + i, row * sizeof(Line));
-		memmove(term->alt, term->alt + i, row * sizeof(Line));
+		term->line = RING_IDX(term, i);
+		term->alt = RING_IDX_ALT(term, i);
 	}
-	for (i += row; i < term->row; i++) {
-		free(term->line[i]);
-		free(term->alt[i]);
-	}
-
 	/* resize to new height */
-	term->line = xrealloc(term->line, row * sizeof(Line));
-	term->alt  = xrealloc(term->alt,  row * sizeof(Line));
 	term->dirty = xrealloc(term->dirty, row * sizeof(*term->dirty));
-	term->tabs = xrealloc(term->tabs, col * sizeof(*term->tabs));
+	term->tabs = xrealloc(term->tabs, term->maxcol * sizeof(*term->tabs));
 
 	/* resize each row to new width, zero-pad if needed */
-	for (i = 0; i < minrow; i++) {
-		term->line[i] = xrealloc(term->line[i], col * sizeof(Glyph));
-		term->alt[i]  = xrealloc(term->alt[i],  col * sizeof(Glyph));
+	for (i = 0; i < term->maxrow; i++) {
+		RING_IDX_ALT(term, i)  = xrealloc(RING_IDX_ALT(term, i),  term->maxcol * sizeof(Glyph));
+		RING_IDX(term, i) = xrealloc(RING_IDX(term, i), term->maxcol * sizeof(Glyph));
 	}
 
 	/* allocate any new rows */
-	for (/* i = minrow */; i < row; i++) {
-		term->line[i] = xmalloc(col * sizeof(Glyph));
-		term->alt[i] = xmalloc(col * sizeof(Glyph));
-	}
 	if (col > term->col) {
 		bp = term->tabs + term->col;
 
@@ -2764,7 +2784,7 @@ drawregion(Term *term, int x1, int y1, int x2, int y2)
 			continue;
 
 		term->dirty[y] = 0;
-		/*xdrawline(term->line[y], x1, y, x2);*/
+		/*xdrawline(RING_IDX(term, i), x1, y, x2);*/
 	}
 }
 
@@ -2787,7 +2807,7 @@ tdraw(Term *t, WINDOW *win, int srow, int scol)
 		if (!t->dirty[i])
 			continue;
 
-		row = t->line[i];
+		row = RING_IDX(t, i);
 		wmove(win, srow + i, scol);
 		for (j = 0, cell = row, prev_cell = NULL; j < t->col; j++, prev_cell = cell, cell = row + j) {
 			if (!prev_cell || cell->mode != prev_cell->mode

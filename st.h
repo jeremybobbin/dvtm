@@ -212,6 +212,10 @@ typedef struct {
 typedef struct {
 	int row;      /* nb row */
 	int col;      /* nb col */
+	int maxrow;   /* max row in the ring buffer */
+	int maxcol;   /* max col in the ring buffer */
+	Line *buf;    /* top of the history/line ring buffer */
+	Line *altbuf; /* alternate screen */
 	Line *line;   /* screen */
 	Line *alt;    /* alternate screen */
 	int *dirty;   /* dirtyness of lines */
