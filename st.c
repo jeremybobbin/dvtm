@@ -71,8 +71,8 @@ static void tnewline(Term *, int);
 static void tputtab(Term *, int);
 static void tputc(Term *, Rune);
 static void treset(Term *);
-static void tscrollup(Term *, int, int);
-static void tscrolldown(Term *, int, int);
+static void tscrollup(Term *, int, int, int);
+static void tscrolldown(Term *, int, int, int);
 static void tsetattr(Term *, int *, int);
 static void tsetchar(Term *, Rune, Glyph *, int, int);
 static void tsetdirt(Term *, int, int);
@@ -1201,7 +1201,7 @@ tswapscreen(Term *term)
  * scrolls the view up
  */
 void
-tscrolldown(Term *term, int orig, int n)
+tscrolldown(Term *term, int orig, int n, int copyhist)
 {
 	int i;
 	Line temp;
@@ -1210,7 +1210,7 @@ tscrolldown(Term *term, int orig, int n)
 
 	tsetdirt(term, orig, term->bot-n);
 
-	if (orig == 0) {
+	if (copyhist && orig == 0) {
 		term->line = &RING_IDX(term, -n); 
 	} else {
 		tclearregion(term, 0, term->bot-n+1, term->col-1, term->bot);
@@ -1228,7 +1228,7 @@ tscrolldown(Term *term, int orig, int n)
  * scrolls the view down
  */
 void
-tscrollup(Term *term, int orig, int n)
+tscrollup(Term *term, int orig, int n, int copyhist)
 {
 	int i;
 	Line temp;
@@ -1236,14 +1236,15 @@ tscrollup(Term *term, int orig, int n)
 	LIMIT(n, 0, term->bot-orig+1);
 
 	/* dirty the ones which will remain on screen */
-	tsetdirt(term, orig+n, term->bot);
 
-	if (orig == 0) {
+	if (copyhist && orig == 0) {
 		/* clear the rows which will rise from beneath */
 		tclearregion(term, 0, term->bot+1, term->col-1, term->bot+n);
 		term->line = &RING_IDX(term, n);  
+		tsetdirt(term, orig, term->bot);
 	} else {
 		tclearregion(term, 0, orig, term->col-1, orig+n-1);
+		tsetdirt(term, orig+n, term->bot);
 		for (i = orig; i <= term->bot-n; i++) {
 			temp = RING_IDX(term, i);
 			RING_IDX(term, i) = RING_IDX(term, i+n);
@@ -1290,7 +1291,7 @@ tnewline(Term *term, int first_col)
 	int y = term->c.y;
 
 	if (y == term->bot) {
-		tscrollup(term, term->top, 1);
+		tscrollup(term, term->top, 1, 1);
 	} else {
 		y++;
 	}
@@ -1453,14 +1454,14 @@ void
 tinsertblankline(Term *term, int n)
 {
 	if (BETWEEN(term->c.y, term->top, term->bot))
-		tscrolldown(term, term->c.y, n);
+		tscrolldown(term, term->c.y, n, 0);
 }
 
 void
 tdeleteline(Term *term, int n)
 {
 	if (BETWEEN(term->c.y, term->top, term->bot))
-		tscrollup(term, term->c.y, n);
+		tscrollup(term, term->c.y, n, 0);
 }
 
 int32_t
@@ -1895,11 +1896,11 @@ csihandle(Term *term)
 		break;
 	case 'S': /* SU -- Scroll <n> line up */
 		DEFAULT(term->csiescseq.arg[0], 1);
-		tscrollup(term, term->top, term->csiescseq.arg[0]);
+		tscrollup(term, term->top, term->csiescseq.arg[0], 0);
 		break;
 	case 'T': /* SD -- Scroll <n> line down */
 		DEFAULT(term->csiescseq.arg[0], 1);
-		tscrolldown(term, term->top, term->csiescseq.arg[0]);
+		tscrolldown(term, term->top, term->csiescseq.arg[0], 0);
 		break;
 	case 'L': /* IL -- Insert <n> blank lines */
 		DEFAULT(term->csiescseq.arg[0], 1);
@@ -2479,7 +2480,7 @@ eschandle(Term *term, uchar ascii)
 		return 0;
 	case 'D': /* IND -- Linefeed */
 		if (term->c.y == term->bot) {
-			tscrollup(term, term->top, 1);
+			tscrollup(term, term->top, 1, 1);
 		} else {
 			tmoveto(term, term->c.x, term->c.y+1);
 		}
@@ -2492,7 +2493,7 @@ eschandle(Term *term, uchar ascii)
 		break;
 	case 'M': /* RI -- Reverse index */
 		if (term->c.y == term->top) {
-			tscrolldown(term, term->top, 1);
+			tscrolldown(term, term->top, 1, 1);
 		} else {
 			tmoveto(term, term->c.x, term->c.y-1);
 		}
