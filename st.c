@@ -34,8 +34,9 @@
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)		(u && wcschr(worddelimiters, u))
 #define NCURSES_ATTR_SHIFT 8
-#define RING_IDX(term, i) (term->buf[((term->line - term->buf) + i) % term->maxrow])
-#define RING_IDX_ALT(term, i) (term->altbuf[((term->alt - term->altbuf) + i) % term->maxrow])
+#define ABS(x) ((x) > 0 ? (x) : (-x) )
+#define RING_IDX(term, i) (term->buf[ABS((term->line - term->buf) + i) % term->maxrow])
+#define RING_IDX_ALT(term, i) (term->altbuf[ABS((term->alt - term->altbuf) + i) % term->maxrow])
 
 
 static void execsh(char *, char **);
@@ -246,7 +247,7 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 
 	char *s = *buf;
 
-	for (i = 0; i < t->row; i++) {
+	for (i = 0; i < t->maxrow - 1; i++) {
 		row = RING_IDX(t, i);
 
 		size_t len = 0;
@@ -1196,6 +1197,9 @@ tswapscreen(Term *term)
 	tfulldirt(term);
 }
 
+/* scrolls the buffer down,
+ * scrolls the view up
+ */
 void
 tscrolldown(Term *term, int orig, int n)
 {
@@ -1205,17 +1209,24 @@ tscrolldown(Term *term, int orig, int n)
 	LIMIT(n, 0, term->bot-orig+1);
 
 	tsetdirt(term, orig, term->bot-n);
-	tclearregion(term, 0, term->bot-n+1, term->col-1, term->bot);
 
-	for (i = term->bot; i >= orig+n; i--) {
-		temp = RING_IDX(term, i);
-		RING_IDX(term, i) = term->line[i-n];
-		term->line[i-n] = temp;
+	if (orig == 0) {
+		term->line = &RING_IDX(term, -n); 
+	} else {
+		tclearregion(term, 0, term->bot-n+1, term->col-1, term->bot);
+		for (i = term->bot; i >= orig+n; i--) {
+			temp = RING_IDX(term, i);
+			RING_IDX(term, i) = RING_IDX(term, i-n);
+			RING_IDX(term, i-n) = temp;
+		}
 	}
 
 	selscroll(term, orig, n);
 }
 
+/* scrolls the buffer up,
+ * scrolls the view down
+ */
 void
 tscrollup(Term *term, int orig, int n)
 {
@@ -1224,13 +1235,20 @@ tscrollup(Term *term, int orig, int n)
 
 	LIMIT(n, 0, term->bot-orig+1);
 
-	tclearregion(term, 0, orig, term->col-1, orig+n-1);
+	/* dirty the ones which will remain on screen */
 	tsetdirt(term, orig+n, term->bot);
 
-	for (i = orig; i <= term->bot-n; i++) {
-		temp = RING_IDX(term, i);
-		RING_IDX(term, i) = term->line[i+n];
-		term->line[i+n] = temp;
+	if (orig == 0) {
+		/* clear the rows which will rise from beneath */
+		tclearregion(term, 0, term->bot+1, term->col-1, term->bot+n);
+		term->line = &RING_IDX(term, n);  
+	} else {
+		tclearregion(term, 0, orig, term->col-1, orig+n-1);
+		for (i = orig; i <= term->bot-n; i++) {
+			temp = RING_IDX(term, i);
+			RING_IDX(term, i) = RING_IDX(term, i+n);
+			RING_IDX(term, i+n) = temp;
+		}
 	}
 
 	selscroll(term, orig, -n);
@@ -1382,8 +1400,6 @@ tclearregion(Term *term, int x1, int y1, int x2, int y2)
 
 	LIMIT(x1, 0, term->col-1);
 	LIMIT(x2, 0, term->col-1);
-	LIMIT(y1, 0, term->row-1);
-	LIMIT(y2, 0, term->row-1);
 
 	for (y = y1; y <= y2; y++) {
 		term->dirty[y] = 1;
