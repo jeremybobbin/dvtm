@@ -174,16 +174,16 @@ Line *
 rbindex(Term *term, int i)
 {
 	i += term->line - term->buf;
-	i %= term->maxcol;
-	return term->buf + (i >= 0 ? i : i + term->maxcol);
+	i %= term->maxrow;
+	return term->buf + (i >= 0 ? i : i + term->maxrow);
 }
 
 Line *
 rbaltindex(Term *term, int i)
 {
 	i += term->alt - term->altbuf;
-	i %= term->maxcol;
-	return term->altbuf + (i >= 0 ? i : i + term->maxcol);
+	i %= term->maxrow;
+	return term->altbuf + (i >= 0 ? i : i + term->maxrow);
 }
 
 static
