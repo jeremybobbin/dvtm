@@ -34,12 +34,8 @@
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)		(u && wcschr(worddelimiters, u))
 #define NCURSES_ATTR_SHIFT 8
-#define RING_IDX(term, i) (term->buf[\
-		abs((((term->line-term->buf+i) % term->maxrow)+term->maxrow) % term->maxrow)\
-	])
-#define RING_IDX_ALT(term, i) (term->altbuf[\
-		abs((((term->alt-term->altbuf+i) % term->maxrow)+term->maxrow) % term->maxrow)\
-	])
+#define RING_IDX(term, i) (*rbindex((term), (i)))
+#define RING_IDX_ALT(term, i) (*rbaltindex((term), (i)))
 
 static void execsh(char *, char **);
 static void stty(char **);
@@ -173,6 +169,22 @@ static short color_pairs_reserved, color_pairs_max, color_pair_current;
 static short *color2palette;
 short defaultfg = COLOR_WHITE;
 short defaultbg = COLOR_BLACK;
+
+Line *
+rbindex(Term *term, int i)
+{
+	i += term->line - term->buf;
+	i %= term->maxcol;
+	return term->buf + (i >= 0 ? i : i + term->maxcol);
+}
+
+Line *
+rbaltindex(Term *term, int i)
+{
+	i += term->alt - term->altbuf;
+	i %= term->maxcol;
+	return term->altbuf + (i >= 0 ? i : i + term->maxcol);
+}
 
 static
 unsigned int color_hash(short fg, short bg)
@@ -1247,12 +1259,12 @@ tscrollup(Term *term, int orig, int n, int copyhist)
 
 	if (copyhist && orig == 0) {
 		/* clear the rows which will rise from beneath */
-		tclearregion(term, 0, term->col, term->col-1, term->col+n);
+		tclearregion(term, 0, term->row, term->col-1, term->row+n);
 		tsetdirt(term, orig, term->bot);
 		/* since we set term->line, when term->bot is manipulated,
-		 * we need shift lines[bot..col] upwards */
+		 * we need shift lines[bot..row] upwards */
 		term->line = &RING_IDX(term, n);
-		for (i = term->col-1; i > term->bot; i--) {
+		for (i = term->row-1; i > term->bot; i--) {
 			temp = RING_IDX(term, i);
 			RING_IDX(term, i) = RING_IDX(term, i-n);
 			RING_IDX(term, i-n) = temp;
