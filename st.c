@@ -1434,7 +1434,7 @@ tdeletechar(Term *term, int n)
 	dst = term->c.x;
 	src = term->c.x + n;
 	size = term->col - src;
-	line = term->line[term->c.y];
+	line = RING_IDX(term, term->c.y);
 
 	memmove(&line[dst], &line[src], size * sizeof(Glyph));
 	tclearregion(term, term->col-n, term->c.y, term->col-1, term->c.y);
@@ -1451,7 +1451,7 @@ tinsertblank(Term *term, int n)
 	dst = term->c.x + n;
 	src = term->c.x;
 	size = term->col - dst;
-	line = term->line[term->c.y];
+	line = RING_IDX(term, term->c.y);
 
 	memmove(&line[dst], &line[src], size * sizeof(Glyph));
 	tclearregion(term, src, term->c.y, dst - 1, term->c.y);
