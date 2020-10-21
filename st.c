@@ -1239,9 +1239,16 @@ tscrollup(Term *term, int orig, int n, int copyhist)
 
 	if (copyhist && orig == 0) {
 		/* clear the rows which will rise from beneath */
-		tclearregion(term, 0, term->bot+1, term->col-1, term->bot+n);
-		term->line = &RING_IDX(term, n);  
+		tclearregion(term, 0, term->col, term->col-1, term->col+n);
 		tsetdirt(term, orig, term->bot);
+		/* since we set term->line, when term->bot is manipulated,
+		 * we need shift lines[bot..col] upwards */
+		term->line = &RING_IDX(term, n);
+		for (i = term->col-1; i > term->bot; i--) {
+			temp = RING_IDX(term, i);
+			RING_IDX(term, i) = RING_IDX(term, i-n);
+			RING_IDX(term, i-n) = temp;
+		}
 	} else {
 		tclearregion(term, 0, orig, term->col-1, orig+n-1);
 		tsetdirt(term, orig+n, term->bot);
