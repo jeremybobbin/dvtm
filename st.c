@@ -34,9 +34,12 @@
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)		(u && wcschr(worddelimiters, u))
 #define NCURSES_ATTR_SHIFT 8
-#define RING_IDX(term, i) (term->buf[abs((term->line - term->buf) + i) % term->maxrow])
-#define RING_IDX_ALT(term, i) (term->altbuf[abs((term->alt - term->altbuf) + i) % term->maxrow])
-
+#define RING_IDX(term, i) (term->buf[\
+		abs((((term->line-term->buf+i) % term->maxrow)+term->maxrow) % term->maxrow)\
+	])
+#define RING_IDX_ALT(term, i) (term->altbuf[\
+		abs((((term->alt-term->altbuf+i) % term->maxrow)+term->maxrow) % term->maxrow)\
+	])
 
 static void execsh(char *, char **);
 static void stty(char **);
