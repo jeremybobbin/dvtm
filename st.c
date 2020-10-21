@@ -1210,7 +1210,13 @@ tscrolldown(Term *term, int orig, int n, int copyhist)
 	tsetdirt(term, orig, term->bot-n);
 
 	if (copyhist && orig == 0) {
-		term->line = &RING_IDX(term, -n); 
+		tclearregion(term, 0, term->bot-n+1, term->col-1, term->bot);
+		for (i = term->bot-n+1; i < term->row-n; i++) {
+			temp = RING_IDX(term, i);
+			RING_IDX(term, i) = RING_IDX(term, i+n);
+			RING_IDX(term, i+n) = temp;
+		}
+		term->line = &RING_IDX(term, -n);
 	} else {
 		tclearregion(term, 0, term->bot-n+1, term->col-1, term->bot);
 		for (i = term->bot; i >= orig+n; i--) {
