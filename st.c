@@ -1224,7 +1224,7 @@ tscrolldown(Term *term, int orig, int n, int copyhist)
 
 	tsetdirt(term, orig, term->bot-n);
 
-	if (copyhist && orig == 0) {
+	if (copyhist && orig == 0 && (term->maxrow > n + term->row)) {
 		tclearregion(term, 0, term->bot-n+1, term->col-1, term->bot);
 		for (i = term->bot-n+1; i < term->row-n; i++) {
 			temp = RING_IDX(term, i);
@@ -1257,7 +1257,7 @@ tscrollup(Term *term, int orig, int n, int copyhist)
 
 	/* dirty the ones which will remain on screen */
 
-	if (copyhist && orig == 0) {
+	if (copyhist && orig == 0 && term->maxrow > (n + term->row)) {
 		/* clear the rows which will rise from beneath */
 		tclearregion(term, 0, term->row, term->col-1, term->row+n);
 		tsetdirt(term, orig, term->bot);
@@ -1432,7 +1432,7 @@ tclearregion(Term *term, int x1, int y1, int x2, int y2)
 	for (y = y1; y <= y2; y++) {
 		term->dirty[y] = 1;
 		for (x = x1; x <= x2; x++) {
-			gp = &RING_IDX(term, y)[x];
+			gp = &(RING_IDX(term, y)[x]);
 			if (selected(term, x, y))
 				selclear(term);
 			gp->fg = term->c.attr.fg;
@@ -2767,8 +2767,8 @@ tresize(Term *term, int col, int row)
 	}
 	/* ensure that both src and dst are not NULL */
 	if (i > 0) {
-		term->line = RING_IDX(term, i);
-		term->alt = RING_IDX_ALT(term, i);
+		term->line = &RING_IDX(term, i);
+		term->alt = &RING_IDX_ALT(term, i);
 	}
 	/* resize to new height */
 	term->dirty = xrealloc(term->dirty, row * sizeof(*term->dirty));
