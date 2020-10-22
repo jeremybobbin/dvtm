@@ -251,15 +251,11 @@ vt_color_reserve(short fg, short bg)
 size_t tgetcontent(Term *t, char **buf, bool colored)
 {
 	Glyph *row, *cell, *prev_cell = NULL;
-	int i, j, b, e, lines = 20;
-	size_t size = lines * ((t->col + 1) * ((colored ? 64 : 0) + MB_CUR_MAX));
+	int i, j, b, e;
+	size_t size;
+	char *s;
 	mbstate_t ps;
 	memset(&ps, 0, sizeof(ps));
-
-	if (!(*buf = malloc(size)))
-		return 0;
-
-	char *s = *buf;
 
 	if (t->seen > t->maxrow) {
 		b = t->seen;
@@ -268,6 +264,11 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 		b = 0;
 		e = t->seen;
 	}
+
+	size = (e - b) * ((t->col + 1) * ((colored ? 64 : 0) + MB_CUR_MAX));
+
+	if (!(s = *buf = malloc(size)))
+		return 0;
 
 	for (i = b; i < e; i++) {
 		row = t->buf[i % t->maxrow];
