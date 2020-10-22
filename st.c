@@ -251,7 +251,7 @@ vt_color_reserve(short fg, short bg)
 size_t tgetcontent(Term *t, char **buf, bool colored)
 {
 	Glyph *row, *cell, *prev_cell = NULL;
-	int i, j, lines = 20;
+	int i, j, b, e, lines = 20;
 	size_t size = lines * ((t->col + 1) * ((colored ? 64 : 0) + MB_CUR_MAX));
 	mbstate_t ps;
 	memset(&ps, 0, sizeof(ps));
@@ -261,8 +261,16 @@ size_t tgetcontent(Term *t, char **buf, bool colored)
 
 	char *s = *buf;
 
-	for (i = 0; i < t->maxrow - 1; i++) {
-		row = RING_IDX(t, i);
+	if (t->seen > t->maxrow) {
+		b = t->seen;
+		e = t->seen + t->maxrow;
+	} else {
+		b = 0;
+		e = t->seen;
+	}
+
+	for (i = b; i < e; i++) {
+		row = t->buf[i % t->maxrow];
 
 		size_t len = 0;
 		char *last_non_space = s;
@@ -1187,6 +1195,7 @@ tnew(int col, int row, int hist)
 		.altbuf = xcalloc(hist, sizeof(Term)),
 		.maxcol = 0,
 		.maxrow = hist,
+		.seen = row,
 	};
 	term->line = term->buf;
 	term->alt = term->altbuf;
@@ -1269,6 +1278,7 @@ tscrollup(Term *term, int orig, int n, int copyhist)
 			RING_IDX(term, i) = RING_IDX(term, i-n);
 			RING_IDX(term, i-n) = temp;
 		}
+		term->seen += n;
 	} else {
 		tclearregion(term, 0, orig, term->col-1, orig+n-1);
 		tsetdirt(term, orig+n, term->bot);

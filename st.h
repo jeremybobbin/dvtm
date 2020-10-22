@@ -220,6 +220,8 @@ typedef struct {
 	Line *alt;    /* alternate screen */
 	int *dirty;   /* dirtyness of lines */
 	TCursor c;    /* cursor */
+	int seen;     /* number of rows seen */
+	int altseen;  /* number of rows seen in the altbuffer */
 	int ocx;      /* old cursor col */
 	int ocy;      /* old cursor row */
 	int top;      /* top    scroll limit */
