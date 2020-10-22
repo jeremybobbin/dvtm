@@ -1177,7 +1177,7 @@ tnew(int col, int row, int hist)
 	Term *term;
 
 	init_colors();
-	term = xmalloc(sizeof(Term));
+	term = xcalloc(1, sizeof(Term));
 	hist = MAX(hist, row);
 	*term = (Term){
 		.c = {
@@ -1191,8 +1191,9 @@ tnew(int col, int row, int hist)
 		/* rows should be constant
 		 * columns will be handled by resize function
 		 */
-		.buf = xcalloc(hist, sizeof(Term)),
-		.altbuf = xcalloc(hist, sizeof(Term)),
+		.buf = xcalloc(hist, row * sizeof(Line)),
+		.altbuf = xcalloc(hist, row * sizeof(Line)),
+		.dirty = xcalloc(row, sizeof(*term->dirty)),
 		.maxcol = 0,
 		.maxrow = hist,
 		.seen = row,
@@ -1440,7 +1441,7 @@ tclearregion(Term *term, int x1, int y1, int x2, int y2)
 	LIMIT(x2, 0, term->col-1);
 
 	for (y = y1; y <= y2; y++) {
-		term->dirty[y] = 1;
+		term->dirty[MIN(y, term->row)] = 1;
 		for (x = x1; x <= x2; x++) {
 			gp = &(RING_IDX(term, y)[x]);
 			if (selected(term, x, y))
@@ -2771,17 +2772,14 @@ tresize(Term *term, int col, int row)
 	 * tscrollup would work here, but we can optimize to
 	 * memmove because we're freeing the earlier lines
 	 */
-	for (i = 0; i <= term->c.y - row; i++) {
-		free(RING_IDX(term, i));
-		free(RING_IDX_ALT(term, i));
-	}
+	i = term->c.y - row;
 	/* ensure that both src and dst are not NULL */
 	if (i > 0) {
 		term->line = &RING_IDX(term, i);
 		term->alt = &RING_IDX_ALT(term, i);
 	}
 	/* resize to new height */
-	term->dirty = xrealloc(term->dirty, row * sizeof(*term->dirty));
+	/* term->dirty = xrealloc(term->dirty, row * sizeof(*term->dirty)); */
 	term->tabs = xrealloc(term->tabs, term->maxcol * sizeof(*term->tabs));
 
 	/* resize each row to new width, zero-pad if needed */
