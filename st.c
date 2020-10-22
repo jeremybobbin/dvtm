@@ -1222,6 +1222,21 @@ tswapscreen(Term *term)
 	tfulldirt(term);
 }
 
+/* scroll for end user */
+void
+tscroll(Term *term, int n)
+{
+	if (n) {
+		n += term->scr;
+		n = MAX(n, 0);
+		/* user should not be able to loop back to the end of the ring buffer*/
+		term->scr = MIN(n, term->maxrow - term->row);
+	} else {
+		term->scr = 0;
+	}
+	tfulldirt(term);
+}
+
 /* scrolls the buffer down,
  * scrolls the view up
  */
@@ -2725,6 +2740,7 @@ twrite(Term *term, const char *buf, int buflen, int show_ctrl)
 	Rune u;
 	int n;
 
+	if (term->scr) tscroll(term, 0);
 	for (n = 0; n < buflen; n += charsize) {
 		if (IS_SET(MODE_UTF8) && !IS_SET(MODE_SIXEL)) {
 			/* process a complete utf8 char */
@@ -2860,7 +2876,7 @@ tdraw(Term *t, WINDOW *win, int srow, int scol)
 		if (!t->dirty[i])
 			continue;
 
-		row = RING_IDX(t, i);
+		row = RING_IDX(t, i-t->scr);
 		wmove(win, srow + i, scol);
 		for (j = 0, cell = row, prev_cell = NULL; j < t->col; j++, prev_cell = cell, cell = row + j) {
 			if (!prev_cell || cell->mode != prev_cell->mode

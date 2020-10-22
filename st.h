@@ -218,6 +218,8 @@ typedef struct {
 	Line *altbuf; /* alternate screen */
 	Line *line;   /* screen */
 	Line *alt;    /* alternate screen */
+	int scr;      /* how far back user is scrolled */
+	int altscr;   /* ^ */
 	int *dirty;   /* dirtyness of lines */
 	TCursor c;    /* cursor */
 	int seen;     /* number of rows seen */
