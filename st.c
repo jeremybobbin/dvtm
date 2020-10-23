@@ -1198,6 +1198,7 @@ tnew(int col, int row, int hist)
 		.maxcol = 0,
 		.maxrow = hist,
 		.seen = row,
+		.cvis = 1,
 	};
 	term->line = term->buf;
 	term->alt = term->altbuf;
@@ -1690,14 +1691,14 @@ tsetscroll(Term *term, int t, int b)
 	term->bot = b;
 }
 
-//void
-//tsetmode(Term *term, int priv, int set, int *args, int narg)
-//{
-//	int alt, *lim;
-//
-//	for (lim = args + narg; args < lim; ++args) {
-//		if (priv) {
-//			switch (*args) {
+void
+tsetmode(Term *term, int priv, int set, int *args, int narg)
+{
+	int alt, *lim;
+
+	for (lim = args + narg; args < lim; ++args) {
+		if (priv) {
+			switch (*args) {
 //			case 1: /* DECCKM -- Cursor key */
 //				xsetmode(set, MODE_APPCURSOR);
 //				break;
@@ -1721,9 +1722,9 @@ tsetscroll(Term *term, int t, int b)
 //			case 42: /* DECNRCM -- National characters (IGNORED) */
 //			case 12: /* att610 -- Start blinking cursor (IGNORED) */
 //				break;
-//			case 25: /* DECTCEM -- Text Cursor Enable Mode */
-//				xsetmode(!set, MODE_HIDE);
-//				break;
+			case 25: /* DECTCEM -- Text Cursor Enable Mode */
+				term->cvis = !term->cvis;
+				break;
 //			case 9:    /* X10 mouse compatibility mode */
 //				xsetpointermotion(0);
 //				xsetmode(0, MODE_MOUSE);
@@ -1788,14 +1789,14 @@ tsetscroll(Term *term, int t, int b)
 //				      and can be mistaken for other control
 //				      codes. */
 //				break;
-//			default:
-//				fprintf(stderr,
-//					"erresc: unknown private set/reset mode %d\n",
-//					*args);
-//				break;
-//			}
-//		} else {
-//			switch (*args) {
+			default:
+				fprintf(stderr,
+					"erresc: unknown private set/reset mode %d\n",
+					*args);
+				break;
+			}
+		} else {
+			switch (*args) {
 //			case 0:  /* Error (IGNORED) */
 //				break;
 //			case 2:
@@ -1810,15 +1811,15 @@ tsetscroll(Term *term, int t, int b)
 //			case 20: /* LNM -- Linefeed/new line */
 //				MODBIT(term->mode, set, MODE_CRLF);
 //				break;
-//			default:
-//				fprintf(stderr,
-//					"erresc: unknown set/reset mode %d\n",
-//					*args);
-//				break;
-//			}
-//		}
-//	}
-//}
+			default:
+				fprintf(stderr,
+					"erresc: unknown set/reset mode %d\n",
+					*args);
+				break;
+			}
+		}
+	}
+}
 
 void
 csihandle(Term *term)

@@ -222,6 +222,7 @@ typedef struct {
 	int altscr;   /* ^ */
 	int *dirty;   /* dirtyness of lines */
 	TCursor c;    /* cursor */
+	int cvis;     /* cursor visible */
 	int seen;     /* number of rows seen */
 	int altseen;  /* number of rows seen in the altbuffer */
 	int ocx;      /* old cursor col */
