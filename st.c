@@ -1454,8 +1454,9 @@ tclearregion(Term *term, int x1, int y1, int x2, int y2)
 	if (y1 > y2)
 		temp = y1, y1 = y2, y2 = temp;
 
-	LIMIT(x1, 0, term->col-1);
-	LIMIT(x2, 0, term->col-1);
+	LIMIT(x1, 0, term->maxcol-1);
+	LIMIT(x2, 0, term->maxcol-1);
+
 
 	for (y = y1; y <= y2; y++) {
 		term->dirty[MIN(y, term->row)] = 1;
@@ -1917,19 +1918,19 @@ csihandle(Term *term)
 	case 'J': /* ED -- Clear screen */
 		switch (term->csiescseq.arg[0]) {
 		case 0: /* below */
-			tclearregion(term, term->c.x, term->c.y, term->col-1, term->c.y);
+			tclearregion(term, term->c.x, term->c.y, term->maxcol-1, term->c.y);
 			if (term->c.y < term->row-1) {
-				tclearregion(term, 0, term->c.y+1, term->col-1,
+				tclearregion(term, 0, term->c.y+1, term->maxcol-1,
 						term->row-1);
 			}
 			break;
 		case 1: /* above */
 			if (term->c.y > 1)
-				tclearregion(term, 0, 0, term->col-1, term->c.y-1);
+				tclearregion(term, 0, 0, term->maxcol-1, term->c.y-1);
 			tclearregion(term, 0, term->c.y, term->c.x, term->c.y);
 			break;
 		case 2: /* all */
-			tclearregion(term, 0, 0, term->col-1, term->row-1);
+			tclearregion(term, 0, 0, term->maxcol-1, term->row-1);
 			break;
 		default:
 			goto unknown;
@@ -2773,11 +2774,11 @@ tresize(Term *term, int col, int row)
 	int i;
 	int minrow = MIN(row, term->row);
 	int mincol = MIN(col, term->col);
+	int maxrow = MAX(row, term->maxrow);
+	int maxcol = MAX(col, term->maxcol);
 	int *bp;
 	/* offsets into views */
 	TCursor c;
-
-	term->maxcol = MAX(col, term->maxcol);
 
 	if (col < 1 || row < 1) {
 		fprintf(stderr,
@@ -2798,12 +2799,12 @@ tresize(Term *term, int col, int row)
 	}
 	/* resize to new height */
 	/* term->dirty = xrealloc(term->dirty, row * sizeof(*term->dirty)); */
-	term->tabs = xrealloc(term->tabs, term->maxcol * sizeof(*term->tabs));
+	term->tabs = xrealloc(term->tabs, maxcol * sizeof(*term->tabs));
 
 	/* resize each row to new width, zero-pad if needed */
-	for (i = 0; i < term->maxrow; i++) {
-		RING_IDX_ALT(term, i)  = xrealloc(RING_IDX_ALT(term, i),  term->maxcol * sizeof(Glyph));
-		RING_IDX(term, i) = xrealloc(RING_IDX(term, i), term->maxcol * sizeof(Glyph));
+	for (i = 0; i < maxrow; i++) {
+		RING_IDX_ALT(term, i)  = xrealloc(RING_IDX_ALT(term, i),  maxcol * sizeof(Glyph));
+		RING_IDX(term, i) = xrealloc(RING_IDX(term, i), maxcol * sizeof(Glyph));
 	}
 
 	/* allocate any new rows */
@@ -2826,16 +2827,18 @@ tresize(Term *term, int col, int row)
 	/* Clearing both screens (it makes dirty all lines) */
 	c = term->c;
 	for (i = 0; i < 2; i++) {
-		if (mincol < col && 0 < minrow) {
-			tclearregion(term, mincol, 0, col - 1, minrow - 1);
+		if (col > term->maxcol && minrow > 0) {
+			term->maxcol = maxcol; /* HACK */
+			tclearregion(term, mincol, 0, maxcol - 1, row - 1);
 		}
-		if (0 < col && minrow < row) {
-			tclearregion(term, 0, minrow, col - 1, row - 1);
+		if (row > term->maxrow && mincol > 0) {
+			tclearregion(term, 0, minrow, maxcol - 1, maxrow - 1);
 		}
 		tswapscreen(term);
 		tcursor(term, CURSOR_LOAD);
 	}
 	term->c = c;
+	term->maxcol = maxcol;
 }
 
 void
